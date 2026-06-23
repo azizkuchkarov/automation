@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "jKzGLDkRq0Q=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Администратор\\Desktop\\automation\\ATG.Platform.Application\\ATG.Platform.Application.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Администратор\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ATG.Platform.API/ATG.Platform.API.csproj" />
+  <Project Path="ATG.Platform.Application/ATG.Platform.Application.csproj" />
+  <Project Path="ATG.Platform.Domain/ATG.Platform.Domain.csproj" />
+  <Project Path="ATG.Platform.Infrastructure/ATG.Platform.Infrastructure.csproj" />
+</Solution>
