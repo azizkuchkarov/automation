@@ -1,0 +1,83 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "loading": "Loading",
+    "error": "Error",
+    "success": "Success",
+    "back": "Back",
+    "logout": "Logout",
+    "comingSoon": "Coming soon",
+    "theme": "Theme",
+    "dark": "Dark",
+    "light": "Light"
+  },
+  "auth": {
+    "title": "ATG Platform",
+    "subtitle": "Asia Trans Gas JV LLC",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "invalidCredentials": "Invalid email or password"
+  },
+  "nav": {
+    "home": "Home",
+    "automation": "Business Automation",
+    "helpdesk": "HelpDesk",
+    "hr": "HR System",
+    "tasks": "Task Navigation",
+    "admin": "Administration",
+    "backToPlatform": "← Back to Platform"
+  },
+  "home": {
+    "title": "ATG Unified Platform",
+    "automationDesc": "Document Control System (DCS)",
+    "helpdeskDesc": "IT & support tickets",
+    "hrDesc": "Staff, leave, attendance",
+    "tasksDesc": "Tasks by role/org visibility"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "users": "Employees",
+    "organizations": "Organizations",
+    "departments": "Departments",
+    "positions": "Positions",
+    "audit": "Audit Log",
+    "totalUsers": "Total users",
+    "activeUsers": "Active users",
+    "orgs": "Organizations",
+    "depts": "Departments",
+    "recentActivity": "Recent activity",
+    "addUser": "Add employee",
+    "export": "Export CSV"
+  },
+  "users": {
+    "title": "Employees",
+    "addUser": "Add employee",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "middleName": "Middle name",
+    "employeeId": "Employee ID",
+    "email": "Email",
+    "phone": "Phone",
+    "organization": "Organization",
+    "department": "Department",
+    "position": "Position",
+    "role": "Role",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "lastLogin": "Last login",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "language": "Language",
+    "resetPassword": "Reset password",
+    "personalInfo": "Personal info",
+    "orgInfo": "Organization",
+    "accessInfo": "Access",
+    "noResults": "No employees found"
+  }
+}

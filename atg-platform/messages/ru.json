@@ -1,0 +1,83 @@
+{
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "search": "Поиск",
+    "loading": "Загрузка",
+    "error": "Ошибка",
+    "success": "Успешно",
+    "back": "Назад",
+    "logout": "Выйти",
+    "comingSoon": "Скоро",
+    "theme": "Тема",
+    "dark": "Тёмная",
+    "light": "Светлая"
+  },
+  "auth": {
+    "title": "АТГ Платформа",
+    "subtitle": "Asia Trans Gas JV LLC",
+    "email": "Электронная почта",
+    "password": "Пароль",
+    "signIn": "Войти",
+    "invalidCredentials": "Неверный email или пароль"
+  },
+  "nav": {
+    "home": "Главная",
+    "automation": "Бизнес Автоматизация",
+    "helpdesk": "Служба поддержки",
+    "hr": "Кадровая система",
+    "tasks": "Навигация задач",
+    "admin": "Администрирование",
+    "backToPlatform": "← К платформе"
+  },
+  "home": {
+    "title": "Платформа АТГ",
+    "automationDesc": "Система управления документами (DCS)",
+    "helpdeskDesc": "IT и служба поддержки",
+    "hrDesc": "Персонал, отпуска, посещаемость",
+    "tasksDesc": "Задачи по роли и организации"
+  },
+  "admin": {
+    "dashboard": "Панель управления",
+    "users": "Сотрудники",
+    "organizations": "Организации",
+    "departments": "Отделы",
+    "positions": "Должности",
+    "audit": "Журнал аудита",
+    "totalUsers": "Всего сотрудников",
+    "activeUsers": "Активные",
+    "orgs": "Организации",
+    "depts": "Отделы",
+    "recentActivity": "Последняя активность",
+    "addUser": "Добавить сотрудника",
+    "export": "Экспорт CSV"
+  },
+  "users": {
+    "title": "Сотрудники",
+    "addUser": "Добавить сотрудника",
+    "firstName": "Имя",
+    "lastName": "Фамилия",
+    "middleName": "Отчество",
+    "employeeId": "Табельный номер",
+    "email": "Email",
+    "phone": "Телефон",
+    "organization": "Организация",
+    "department": "Отдел",
+    "position": "Должность",
+    "role": "Роль",
+    "status": "Статус",
+    "active": "Активен",
+    "inactive": "Неактивен",
+    "lastLogin": "Последний вход",
+    "password": "Пароль",
+    "confirmPassword": "Подтвердите пароль",
+    "language": "Язык",
+    "resetPassword": "Сбросить пароль",
+    "personalInfo": "Личные данные",
+    "orgInfo": "Организация",
+    "accessInfo": "Доступ",
+    "noResults": "Сотрудники не найдены"
+  }
+}
