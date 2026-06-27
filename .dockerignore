@@ -1,0 +1,26 @@
+# Git & IDE
+.git
+.vs
+.idea
+.vscode
+
+# .NET
+**/bin
+**/obj
+**/.temp-hash
+.ho-seed
+
+# Node
+atg-platform/node_modules
+atg-platform/.next
+atg-platform/out
+atg-platform/.turbo
+
+# Data & logs
+data
+**/*.log
+**/uploads
+
+# Env
+.env
+.env.*

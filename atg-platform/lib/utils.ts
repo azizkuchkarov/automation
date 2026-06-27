@@ -42,3 +42,26 @@ export function normalizeRole(role: string | number | undefined): string {
 export function isAdminRole(role?: string | number) {
   return adminRoles.includes(normalizeRole(role));
 }
+
+export function localizedUserName(
+  user: { fullName: string; fullNameEn?: string },
+  locale: string
+) {
+  return locale.startsWith("en") && user.fullNameEn ? user.fullNameEn : user.fullName;
+}
+
+export function localizedDepartmentName(
+  dept: { name?: string; departmentName?: string; nameEn?: string; departmentNameEn?: string },
+  locale: string
+) {
+  const ru = dept.departmentName ?? dept.name ?? "";
+  const en = dept.departmentNameEn ?? dept.nameEn;
+  return locale.startsWith("en") && en ? en : ru;
+}
+
+export function localizedJobTitle(
+  user: { jobTitleRu?: string; jobTitleEn?: string },
+  locale: string
+) {
+  return locale.startsWith("en") && user.jobTitleEn ? user.jobTitleEn : user.jobTitleRu;
+}

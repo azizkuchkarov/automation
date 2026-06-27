@@ -10,29 +10,36 @@ import { isAdminRole } from "@/lib/utils";
 export function AuthGuard({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const router = useRouter();
   const locale = useLocale();
-  const { user, accessToken, setAuth } = useAuthStore();
+  const { user, accessToken, setAuth, hydrate } = useAuthStore();
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
+    hydrate();
     setHasSession(document.cookie.includes("hasSession"));
-  }, []);
+  }, [hydrate]);
 
   useEffect(() => {
     const check = async () => {
-      if (!hasSession && !accessToken) {
+      const token = useAuthStore.getState().accessToken;
+      const hasCookie = document.cookie.includes("hasSession");
+
+      if (!hasCookie && !token) {
         router.replace(`/${locale}/login`);
         return;
       }
-      if (!user && hasSession) {
+
+      if (!useAuthStore.getState().user) {
         try {
           const me = await fetchMe();
           setAuth(useAuthStore.getState().accessToken || "", me);
         } catch {
+          document.cookie = "hasSession=; path=/; max-age=0";
           router.replace(`/${locale}/login`);
           return;
         }
       }
+
       const currentUser = useAuthStore.getState().user;
       if (adminOnly && currentUser && !isAdminRole(currentUser.role)) {
         router.replace(`/${locale}/home`);
@@ -40,10 +47,17 @@ export function AuthGuard({ children, adminOnly = false }: { children: React.Rea
       }
       setReady(true);
     };
+
     if (hasSession || accessToken) check();
     else router.replace(`/${locale}/login`);
   }, [hasSession, accessToken, user, router, locale, adminOnly, setAuth]);
 
-  if (!ready) return null;
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-foreground/40 text-sm">
+        …
+      </div>
+    );
+  }
   return <>{children}</>;
 }

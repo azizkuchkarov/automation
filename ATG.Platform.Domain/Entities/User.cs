@@ -9,6 +9,11 @@ public class User
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string? MiddleName { get; set; }
+    public string FirstNameEn { get; set; } = string.Empty;
+    public string LastNameEn { get; set; } = string.Empty;
+    public string? MiddleNameEn { get; set; }
+    public string? JobTitleRu { get; set; }
+    public string? JobTitleEn { get; set; }
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
@@ -29,6 +34,20 @@ public class User
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
 
     public string FullName => string.IsNullOrWhiteSpace(MiddleName)
-        ? $"{FirstName} {LastName}"
-        : $"{FirstName} {MiddleName} {LastName}";
+        ? $"{LastName} {FirstName}"
+        : $"{LastName} {FirstName} {MiddleName}";
+
+    public string FullNameEn => string.IsNullOrWhiteSpace(MiddleNameEn)
+        ? $"{LastNameEn} {FirstNameEn}"
+        : $"{LastNameEn} {FirstNameEn} {MiddleNameEn}";
+
+    public string GetFullName(string locale) =>
+        locale.StartsWith("en", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(FirstNameEn)
+            ? FullNameEn
+            : FullName;
+
+    public string? GetJobTitle(string locale) =>
+        locale.StartsWith("en", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(JobTitleEn)
+            ? JobTitleEn
+            : JobTitleRu;
 }

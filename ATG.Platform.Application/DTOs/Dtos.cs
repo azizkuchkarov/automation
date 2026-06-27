@@ -9,6 +9,12 @@ public record UserDto(
     string LastName,
     string? MiddleName,
     string FullName,
+    string FirstNameEn,
+    string LastNameEn,
+    string? MiddleNameEn,
+    string FullNameEn,
+    string? JobTitleRu,
+    string? JobTitleEn,
     string Email,
     string? Phone,
     Guid OrganizationId,
@@ -16,6 +22,7 @@ public record UserDto(
     string OrganizationCode,
     Guid? DepartmentId,
     string? DepartmentName,
+    string? DepartmentNameEn,
     Guid? PositionId,
     string? PositionName,
     UserRole Role,
@@ -36,7 +43,24 @@ public record CreateUserRequest(
     Guid? PositionId,
     UserRole Role,
     string Language,
-    string Password);
+    string? Password,
+    bool UseLdap = false);
+
+public record ImportUsersRequest(Guid OrganizationId, IReadOnlyList<ImportUserRow> Users);
+
+public record ImportUserRow(
+    string EmployeeId,
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    string Email,
+    string? Phone,
+    string DepartmentCode,
+    string PositionCode,
+    UserRole Role,
+    string Language);
+
+public record ImportUsersResult(int Created, int Failed, IReadOnlyList<string> Errors);
 
 public record UpdateUserRequest(
     string EmployeeId,
@@ -70,8 +94,31 @@ public record DepartmentDto(
     Guid OrganizationId,
     string OrganizationName,
     string Name,
+    string NameEn,
     string Code,
+    Guid? ParentId,
     bool IsActive);
+
+public record DepartmentHierarchyDto(
+    Guid Id,
+    string Name,
+    string NameEn,
+    string Code,
+    bool IsActive,
+    int UserCount,
+    int TotalUserCount,
+    IReadOnlyList<DepartmentHierarchyDto> Children);
+
+public record OrgHierarchyDto(
+    Guid Id,
+    string Name,
+    string Code,
+    OrgType OrgType,
+    bool IsActive,
+    int UserCount,
+    int TotalUserCount,
+    IReadOnlyList<DepartmentHierarchyDto> Departments,
+    IReadOnlyList<OrgHierarchyDto> Children);
 
 public record PositionDto(Guid Id, string Name, string Code, bool IsActive);
 

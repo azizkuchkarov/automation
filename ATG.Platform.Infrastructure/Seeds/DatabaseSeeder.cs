@@ -24,14 +24,11 @@ public static class DatabaseSeeder
     var bmgmc = new Organization { Name = "BMGMC", Code = "BMGMC", OrgType = OrgType.BMGMC, Parent = ho };
     var stations = new[]
     {
-      new Organization { Name = "WKC1", Code = "WKC1", OrgType = OrgType.Station, Parent = bmgmc },
-      new Organization { Name = "WKC2", Code = "WKC2", OrgType = OrgType.Station, Parent = bmgmc },
-      new Organization { Name = "UCS1", Code = "UCS1", OrgType = OrgType.Station, Parent = bmgmc },
-      new Organization { Name = "GCS", Code = "GCS", OrgType = OrgType.Station, Parent = bmgmc },
-      new Organization { Name = "WKC3", Code = "WKC3", OrgType = OrgType.Station, Parent = bmgmc },
-      new Organization { Name = "UCS3", Code = "UCS3", OrgType = OrgType.Station, Parent = bmgmc },
-      new Organization { Name = "MS", Code = "MS", OrgType = OrgType.Station, Parent = bmgmc },
-      new Organization { Name = "UKMS", Code = "UKMS", OrgType = OrgType.Station, Parent = bmgmc }
+      new Organization { Name = "Regional station WKC1 / UCS1", Code = "WKC1-UCS1", OrgType = OrgType.Station, Parent = bmgmc },
+      new Organization { Name = "Regional station WKC2 / GCS", Code = "WKC2-GCS", OrgType = OrgType.Station, Parent = bmgmc },
+      new Organization { Name = "Regional station WKC3", Code = "WKC3", OrgType = OrgType.Station, Parent = bmgmc },
+      new Organization { Name = "Regional station UCS3", Code = "UCS3", OrgType = OrgType.Station, Parent = bmgmc },
+      new Organization { Name = "Regional station MS / UKMS", Code = "MS-UKMS", OrgType = OrgType.Station, Parent = bmgmc }
     };
 
     db.Organizations.Add(ho);
@@ -77,7 +74,7 @@ public static class DatabaseSeeder
       FirstName = "System",
       LastName = "Administrator",
       Email = "admin@atg.uz",
-      PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@2024!", 12),
+      PasswordHash = BCrypt.Net.BCrypt.HashPassword("12345", 12),
       Organization = ho,
       Department = hoDept,
       Position = positions[6],

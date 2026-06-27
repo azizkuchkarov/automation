@@ -1,6 +1,6 @@
-import PlaceholderPage from "@/components/layout/PlaceholderPage";
-import { Headset } from "lucide-react";
+import { redirect } from "next/navigation";
 
-export default function HelpdeskPage() {
-  return <PlaceholderPage icon={Headset} titleKey="helpdesk" />;
+export default async function HelpdeskIndex({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  redirect(`/${locale}/helpdesk/board`);
 }

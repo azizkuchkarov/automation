@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthStore } from "@/store/authStore";
-import { isAdminRole } from "@/lib/utils";
+import { isAdminRole, localizedDepartmentName, localizedUserName } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -31,7 +31,14 @@ export function TopBar() {
       <div className="flex items-center gap-3">
         {user && (
           <div className="flex items-center gap-2 text-sm">
-            <span>{user.fullName}</span>
+            <div className="text-right hidden sm:block">
+              <div>{localizedUserName(user, locale)}</div>
+              {user.departmentName && (
+                <div className="text-xs text-foreground/50">
+                  {localizedDepartmentName(user, locale)}
+                </div>
+              )}
+            </div>
             <Badge className="bg-border/50">{user.role}</Badge>
             {isAdminRole(user.role) && (
               <Link

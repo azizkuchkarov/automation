@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import api from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
+import { GitBranch } from "lucide-react";
 
 interface OrgNode {
   id: string;
@@ -32,6 +34,7 @@ function OrgTreeNode({ node, depth = 0 }: { node: OrgNode; depth?: number }) {
 
 export default function OrganizationsPage() {
   const t = useTranslations("admin");
+  const locale = useLocale();
   const [tree, setTree] = useState<OrgNode[]>([]);
 
   useEffect(() => {
@@ -40,7 +43,17 @@ export default function OrganizationsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-6">{t("organizations")}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-semibold">{t("organizations")}</h1>
+        <Link
+          href={`/${locale}/admin/hierarchy`}
+          className="inline-flex items-center gap-2 rounded-md bg-atg-blue/20 text-atg-blue px-3 py-2 text-sm font-medium hover:bg-atg-blue/30 transition-colors"
+        >
+          <GitBranch size={16} />
+          {t("hierarchy")}
+        </Link>
+      </div>
+      <p className="text-sm text-foreground/60 mb-4">{t("organizationsFlatHint")}</p>
       <div className="rounded-lg border border-border bg-surface p-4">
         {tree.map((n) => <OrgTreeNode key={n.id} node={n} />)}
       </div>

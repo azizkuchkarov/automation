@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { LayoutDashboard, Users, Building2, FolderTree, Briefcase, ScrollText } from "lucide-react";
+import { LayoutDashboard, Users, Building2, FolderTree, Briefcase, ScrollText, GitBranch, Headset, FileStack } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/admin", icon: LayoutDashboard, key: "dashboard", exact: true },
   { href: "/admin/users", icon: Users, key: "users" },
   { href: "/admin/organizations", icon: Building2, key: "organizations" },
+  { href: "/admin/hierarchy", icon: GitBranch, key: "hierarchy" },
   { href: "/admin/departments", icon: FolderTree, key: "departments" },
   { href: "/admin/positions", icon: Briefcase, key: "positions" },
   { href: "/admin/audit", icon: ScrollText, key: "audit" },
+  { href: "/admin/helpdesk", icon: Headset, key: "helpdeskControl" },
+  { href: "/admin/dcs", icon: FileStack, key: "dcsControl" },
 ];
 
 export function AdminSidebar() {

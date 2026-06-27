@@ -90,6 +90,21 @@ public class UsersController(IUserService users) : ControllerBase
         return File(data, "text/csv", "users.csv");
     }
 
+    [HttpGet("next-employee-id")]
+    public async Task<IActionResult> NextEmployeeId(CancellationToken ct)
+    {
+        var result = await users.GetNextEmployeeIdAsync(ct);
+        return result.IsSuccess ? Ok(new { employeeId = result.Data }) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("import")]
+    public async Task<IActionResult> Import([FromBody] ImportUsersRequest request, CancellationToken ct)
+    {
+        var actorId = GetUserId()!.Value;
+        var result = await users.ImportUsersAsync(request, actorId, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     private Guid? GetUserId()
     {
         var id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");

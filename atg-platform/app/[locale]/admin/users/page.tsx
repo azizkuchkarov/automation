@@ -1,22 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import api from "@/lib/api";
+import { importUsersCsv } from "@/lib/importUsers";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { formatRelativeTime } from "@/lib/utils";
-import { Pencil } from "lucide-react";
+import { formatRelativeTime, localizedDepartmentName, localizedUserName } from "@/lib/utils";
+import { Pencil, Upload } from "lucide-react";
 
 interface User {
   id: string;
   employeeId?: string;
   fullName: string;
+  fullNameEn?: string;
   email: string;
   organizationCode: string;
   departmentName?: string;
+  departmentNameEn?: string;
+  jobTitleRu?: string;
+  jobTitleEn?: string;
   positionName?: string;
   role: string;
   isActive: boolean;
@@ -26,6 +31,7 @@ interface User {
 export default function UsersPage() {
   const t = useTranslations("users");
   const tAdmin = useTranslations("admin");
+  const tCommon = useTranslations("common");
   const locale = useLocale();
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
@@ -35,6 +41,8 @@ export default function UsersPage() {
   const [role, setRole] = useState("");
   const [isActive, setIsActive] = useState("");
   const [orgs, setOrgs] = useState<{ id: string; name: string; code: string; children?: unknown[] }[]>([]);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = () => {
     api.get("/users", {
@@ -58,8 +66,24 @@ export default function UsersPage() {
       };
       walk(r.data);
       setOrgs(flat);
+      const ho = flat.find((o) => o.code === "HO");
+      if (ho) setOrgId((prev) => prev || ho.id);
     });
   }, []);
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !orgId) return;
+    try {
+      const result = await importUsersCsv(orgId, file);
+      setImportResult(`${tAdmin("importDone")}: ${result.created} ${t("active").toLowerCase()}, ${result.failed} ${tCommon("error").toLowerCase()}`);
+      if (result.errors.length) console.warn(result.errors);
+      load();
+    } catch {
+      setImportResult(tCommon("error"));
+    }
+    e.target.value = "";
+  };
 
   const toggleActive = async (id: string, active: boolean) => {
     await api.patch(`/users/${id}/${active ? "deactivate" : "activate"}`);
@@ -75,10 +99,16 @@ export default function UsersPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <div className="flex gap-2">
+          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={!orgId}>
+            <Upload size={14} className="mr-1" />
+            {tAdmin("importCsv")}
+          </Button>
           <Button variant="secondary" size="sm" onClick={exportCsv}>{tAdmin("export")}</Button>
           <Link href={`/${locale}/admin/users/new`}><Button size="sm">{t("addUser")}</Button></Link>
         </div>
       </div>
+      {importResult && <p className="text-sm mb-3 text-foreground/70">{importResult}</p>}
       <div className="flex flex-wrap gap-2 mb-4">
         <Input placeholder={t("title") + "..."} value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
         <Button size="sm" variant="secondary" onClick={() => { setPage(1); load(); }}>Search</Button>
@@ -116,11 +146,11 @@ export default function UsersPage() {
             {users.map((u) => (
               <tr key={u.id} className="border-b border-border/50 h-10 hover:bg-border/10">
                 <td className="p-3">
-                  <div className="font-medium">{u.fullName}</div>
+                  <div className="font-medium">{localizedUserName(u, locale)}</div>
                   <div className="text-xs text-foreground/50">{u.employeeId} · {u.email}</div>
                 </td>
                 <td className="p-3"><Badge className="bg-atg-blue/20 text-atg-blue">{u.organizationCode}</Badge></td>
-                <td className="p-3">{u.departmentName || "—"}</td>
+                <td className="p-3">{localizedDepartmentName(u, locale) || "—"}</td>
                 <td className="p-3">{u.positionName || "—"}</td>
                 <td className="p-3"><Badge className="bg-border/50">{u.role}</Badge></td>
                 <td className="p-3">

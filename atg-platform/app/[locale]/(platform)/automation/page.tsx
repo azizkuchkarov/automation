@@ -1,6 +1,10 @@
-import PlaceholderPage from "@/components/layout/PlaceholderPage";
-import { Briefcase } from "lucide-react";
+import { redirect } from "next/navigation";
 
-export default function AutomationPage() {
-  return <PlaceholderPage icon={Briefcase} titleKey="automation" />;
+export default async function AutomationIndexPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  redirect(`/${locale}/automation/procurement/technical-assignments`);
 }

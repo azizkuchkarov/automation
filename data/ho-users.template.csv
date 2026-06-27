@@ -1,0 +1,3 @@
+EmployeeId,FirstName,LastName,MiddleName,Email,Phone,DepartmentCode,PositionCode,Role,Language
+ATG-002,Ivan,Petrov,Petrovich,ivan.petrov@atg.uz,+998901234567,HO-IT,ENGINEER,HOEngineer,ru
+ATG-003,Maria,Kim,,maria.kim@atg.uz,,HO-HR,SPECIALIST,HONachalnik,ru

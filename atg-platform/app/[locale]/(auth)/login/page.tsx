@@ -26,8 +26,13 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.push(`/${locale}/home`);
-    } catch {
-      setError(t("invalidCredentials"));
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      if (message === "User is not registered in the platform") {
+        setError(t("userNotRegistered"));
+      } else {
+        setError(t("invalidCredentials"));
+      }
     } finally {
       setLoading(false);
     }
@@ -47,7 +52,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm mb-1 block">{t("email")}</label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+            <Input type="text" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" />
           </div>
           <div>
             <label className="text-sm mb-1 block">{t("password")}</label>
@@ -68,6 +73,7 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "..." : t("signIn")}
           </Button>
+          <p className="text-xs text-center text-foreground/50">{t("ldapHint")}</p>
         </form>
       </div>
     </div>

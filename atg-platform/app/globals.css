@@ -8,10 +8,10 @@
 }
 
 [data-theme="light"] {
-  --background: #f6f8fa;
-  --foreground: #1f2328;
+  --background: #eef2f7;
+  --foreground: #0f172a;
   --surface: #ffffff;
-  --border: #d0d7de;
+  --border: #e2e8f0;
 }
 
 @theme inline {
@@ -21,8 +21,8 @@
   --color-border: var(--border);
   --color-atg-blue: #2563eb;
   --color-atg-teal: #0d9488;
-  --color-atg-purple: #7c3aed;
   --color-atg-amber: #d97706;
+  --color-atg-purple: #7c3aed;
   --color-atg-dark: #0d1117;
   --font-sans: var(--font-inter);
 }

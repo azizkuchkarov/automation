@@ -18,6 +18,7 @@ public class AuthController(IAuthService auth) : ControllerBase
         if (!result.IsSuccess) return Unauthorized(new { error = result.Error });
 
         Response.Cookies.Append("refreshToken", result.Data!.RefreshToken, CookieOptions());
+        Response.Cookies.Append("accessToken", result.Data.AccessToken, AccessTokenCookieOptions());
         return Ok(new { accessToken = result.Data.AccessToken, user = result.Data.User });
     }
 
@@ -32,6 +33,7 @@ public class AuthController(IAuthService auth) : ControllerBase
         if (!result.IsSuccess) return Unauthorized(new { error = result.Error });
 
         Response.Cookies.Append("refreshToken", result.Data!.RefreshToken, CookieOptions());
+        Response.Cookies.Append("accessToken", result.Data.AccessToken, AccessTokenCookieOptions());
         return Ok(new { accessToken = result.Data.AccessToken });
     }
 
@@ -42,6 +44,7 @@ public class AuthController(IAuthService auth) : ControllerBase
         var token = Request.Cookies["refreshToken"];
         if (!string.IsNullOrEmpty(token)) await auth.LogoutAsync(token, ct);
         Response.Cookies.Delete("refreshToken");
+        Response.Cookies.Delete("accessToken");
         return Ok();
     }
 
@@ -67,6 +70,15 @@ public class AuthController(IAuthService auth) : ControllerBase
         Secure = false,
         SameSite = SameSiteMode.Lax,
         Expires = DateTimeOffset.UtcNow.AddDays(7),
+        Path = "/"
+    };
+
+    private CookieOptions AccessTokenCookieOptions() => new()
+    {
+        HttpOnly = true,
+        Secure = false,
+        SameSite = SameSiteMode.Lax,
+        Expires = DateTimeOffset.UtcNow.AddMinutes(15),
         Path = "/"
     };
 }

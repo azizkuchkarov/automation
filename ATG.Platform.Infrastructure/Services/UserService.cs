@@ -52,14 +52,21 @@ public class UserService(AppDbContext db, IAuditService audit) : IUserService
 
     public async Task<Result<UserDto>> CreateUserAsync(CreateUserRequest request, Guid actorId, string? ipAddress, CancellationToken ct = default)
     {
-        if (!IsValidPassword(request.Password))
-            return Result<UserDto>.Fail("Password must be at least 8 characters with 1 uppercase and 1 number");
+        if (!request.UseLdap)
+        {
+            if (string.IsNullOrWhiteSpace(request.Password) || !IsValidPassword(request.Password))
+                return Result<UserDto>.Fail("Password must be at least 8 characters with 1 uppercase and 1 number");
+        }
 
         if (await db.Users.AnyAsync(u => u.Email == request.Email.ToLower(), ct))
             return Result<UserDto>.Fail("Email already exists");
 
         if (await db.Users.AnyAsync(u => u.EmployeeId == request.EmployeeId, ct))
             return Result<UserDto>.Fail("Employee ID already exists");
+
+        var passwordHash = request.UseLdap
+            ? string.Empty
+            : BCrypt.Net.BCrypt.HashPassword(request.Password!, 12);
 
         var user = new User
         {
@@ -69,7 +76,7 @@ public class UserService(AppDbContext db, IAuditService audit) : IUserService
             MiddleName = request.MiddleName,
             Email = request.Email.ToLower(),
             Phone = request.Phone,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12),
+            PasswordHash = passwordHash,
             OrganizationId = request.OrganizationId,
             DepartmentId = request.DepartmentId,
             PositionId = request.PositionId,
@@ -79,7 +86,7 @@ public class UserService(AppDbContext db, IAuditService audit) : IUserService
 
         db.Users.Add(user);
         await db.SaveChangesAsync(ct);
-        await audit.LogAsync(actorId, "USER_CREATED", "User", user.Id, JsonSerializer.Serialize(new { user.Email }), ipAddress, ct);
+        await audit.LogAsync(actorId, "USER_CREATED", "User", user.Id, JsonSerializer.Serialize(new { user.Email, request.UseLdap }), ipAddress, ct);
 
         return await GetUserByIdAsync(user.Id, ct);
     }
@@ -177,6 +184,66 @@ public class UserService(AppDbContext db, IAuditService audit) : IUserService
                 u.LastLoginAt?.ToString("o", CultureInfo.InvariantCulture) ?? ""));
         }
         return Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    public async Task<Result<ImportUsersResult>> ImportUsersAsync(ImportUsersRequest request, Guid actorId, string? ipAddress, CancellationToken ct = default)
+    {
+        var departments = await db.Departments
+            .Where(d => d.OrganizationId == request.OrganizationId && d.IsActive)
+            .ToDictionaryAsync(d => d.Code, d => d.Id, StringComparer.OrdinalIgnoreCase, ct);
+
+        var positions = await db.Positions
+            .Where(p => p.IsActive)
+            .ToDictionaryAsync(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase, ct);
+
+        var created = 0;
+        var errors = new List<string>();
+
+        for (var i = 0; i < request.Users.Count; i++)
+        {
+            var row = request.Users[i];
+            var line = i + 1;
+
+            if (!departments.TryGetValue(row.DepartmentCode, out var deptId))
+            {
+                errors.Add($"Row {line}: department '{row.DepartmentCode}' not found");
+                continue;
+            }
+
+            if (!positions.TryGetValue(row.PositionCode, out var posId))
+            {
+                errors.Add($"Row {line}: position '{row.PositionCode}' not found");
+                continue;
+            }
+
+            var create = new CreateUserRequest(
+                row.EmployeeId, row.FirstName, row.LastName, row.MiddleName,
+                row.Email, row.Phone, request.OrganizationId, deptId, posId,
+                row.Role, row.Language, null, UseLdap: true);
+
+            var result = await CreateUserAsync(create, actorId, ipAddress, ct);
+            if (result.IsSuccess)
+                created++;
+            else
+                errors.Add($"Row {line} ({row.Email}): {result.Error}");
+        }
+
+        return Result<ImportUsersResult>.Ok(new ImportUsersResult(created, errors.Count, errors));
+    }
+
+    public async Task<Result<string>> GetNextEmployeeIdAsync(CancellationToken ct = default)
+    {
+        var ids = await db.Users
+            .Where(u => u.EmployeeId != null && u.EmployeeId.StartsWith("ATG-"))
+            .Select(u => u.EmployeeId!)
+            .ToListAsync(ct);
+
+        var max = ids
+            .Select(id => int.TryParse(id.AsSpan(4), out var n) ? n : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return Result<string>.Ok($"ATG-{(max + 1):D3}");
     }
 
     private IQueryable<User> GetUserQuery() => db.Users

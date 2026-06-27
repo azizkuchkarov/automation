@@ -13,6 +13,12 @@ public static class EntityMapper
         user.LastName,
         user.MiddleName,
         user.FullName,
+        user.FirstNameEn,
+        user.LastNameEn,
+        user.MiddleNameEn,
+        user.FullNameEn,
+        user.JobTitleRu,
+        user.JobTitleEn,
         user.Email,
         user.Phone,
         user.OrganizationId,
@@ -20,6 +26,7 @@ public static class EntityMapper
         user.Organization?.Code ?? "",
         user.DepartmentId,
         user.Department?.Name,
+        user.Department?.NameEn,
         user.PositionId,
         user.Position?.Name,
         user.Role,
@@ -43,7 +50,9 @@ public static class EntityMapper
         dept.OrganizationId,
         dept.Organization?.Name ?? "",
         dept.Name,
+        dept.NameEn,
         dept.Code,
+        dept.ParentId,
         dept.IsActive);
 
     public static PositionDto ToDto(this Position pos) => new(pos.Id, pos.Name, pos.Code, pos.IsActive);

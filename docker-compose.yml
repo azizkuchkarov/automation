@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: automation
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d automation"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+
+  api:
+    build:
+      context: .
+      dockerfile: ATG.Platform.API/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=automation;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}
+      Jwt__SecretKey: ${JWT_SECRET:-atg-platform-secret-key-min-32-chars-long}
+      Jwt__Issuer: atg-platform
+      Jwt__Audience: atg-users
+      Frontend__Url: ${FRONTEND_URL:-http://localhost:3000}
+      Ldap__Enabled: "false"
+      Minio__Enabled: "true"
+      Minio__Endpoint: minio:9000
+      Minio__AccessKey: ${MINIO_ROOT_USER:-minioadmin}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      Minio__Bucket: atg-marketing
+      Minio__UseSsl: "false"
+      Hangfire__Enabled: "true"
+    volumes:
+      - api_uploads:/app/uploads
+    ports:
+      - "${API_PORT:-5161}:8080"
+
+  frontend:
+    build:
+      context: ./atg-platform
+      dockerfile: Dockerfile
+      args:
+        INTERNAL_API_URL: http://api:8080
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      INTERNAL_API_URL: http://api:8080
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
+  minio_data:
+  api_uploads:

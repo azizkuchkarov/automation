@@ -17,6 +17,13 @@ public class OrganizationsController(IOrganizationService orgs) : ControllerBase
         return Ok(result.Data);
     }
 
+    [HttpGet("hierarchy")]
+    public async Task<IActionResult> GetHierarchy(CancellationToken ct)
+    {
+        var result = await orgs.GetHierarchyAsync(ct);
+        return Ok(result.Data);
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
@@ -60,7 +67,7 @@ public class DepartmentsController(IDepartmentService depts) : ControllerBase
     [Authorize(Roles = "SuperAdmin,HOTopManager")]
     public async Task<IActionResult> Create([FromBody] DeptRequest request, CancellationToken ct)
     {
-        var result = await depts.CreateAsync(request.OrganizationId, request.Name, request.Code, ct);
+        var result = await depts.CreateAsync(request.OrganizationId, request.Name, request.NameEn ?? request.Name, request.Code, ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -68,7 +75,7 @@ public class DepartmentsController(IDepartmentService depts) : ControllerBase
     [Authorize(Roles = "SuperAdmin,HOTopManager")]
     public async Task<IActionResult> Update(Guid id, [FromBody] DeptUpdateRequest request, CancellationToken ct)
     {
-        var result = await depts.UpdateAsync(id, request.Name, request.Code, ct);
+        var result = await depts.UpdateAsync(id, request.Name, request.NameEn ?? request.Name, request.Code, ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -81,8 +88,8 @@ public class DepartmentsController(IDepartmentService depts) : ControllerBase
     }
 }
 
-public record DeptRequest(Guid OrganizationId, string Name, string Code);
-public record DeptUpdateRequest(string Name, string Code);
+public record DeptRequest(Guid OrganizationId, string Name, string Code, string? NameEn = null);
+public record DeptUpdateRequest(string Name, string Code, string? NameEn = null);
 
 [ApiController]
 [Route("api/positions")]
