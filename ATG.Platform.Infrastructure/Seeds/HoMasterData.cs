@@ -242,6 +242,8 @@ public static class HoMasterData
             "Специалист по маркетингу", "Marketing Specialist", "SPECIALIST", UserRole.HOEngineer),
         new("ATG-070", "Кирилл", "Дручинин", "Александрович", "Kirill", "Druzhinin", "Alexandrovich", "k.druchinin@atg.uz", "50 122 80 32", null, "HO-MKT-MKT",
             "Специалист по маркетингу", "Marketing Specialist", "SPECIALIST", UserRole.HOEngineer),
+        new("ATG-901", "Тест", "Пользователь", "2", "Test", "User", "Two", "user2@atg.uz", null, null, "HO-MKT-MKT",
+            "Начальник отдела маркетинга (тест)", "Marketing Section Manager (test)", "NACHALNIK", UserRole.HONachalnik),
         new("ATG-071", "Инна", "Когай", "Артуровна", "Inna", "Kogay", "Arturovna", "i.kogay@atg.uz", "94 660 42 55", "7984", "HO-MKT-TND",
             "Специалист по тендерам (главный специалист)", "Tender Officer (Chief specialist)", "SPECIALIST", UserRole.HOEngineer),
         new("ATG-072", "Светлана", "Ким", "Михайловна", "Svetlana", "Kim", "Mikhailovna", "s.kim@atg.uz", "94 660 98 19", "7978", "HO-MKT-TND",

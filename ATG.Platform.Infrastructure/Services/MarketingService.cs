@@ -206,7 +206,7 @@ public class MarketingService(AppDbContext db, IAuditService audit) : IMarketing
         if (record is null) return Result<MarketingRecordDto>.Fail("Marketing record not found");
         if (!await CanWorkRecord(actorId, record, ct)) return Result<MarketingRecordDto>.Fail("Access denied");
 
-        record.RfqDispatches.Add(new RfqDispatch
+        var dispatch = new RfqDispatch
         {
             Id = Guid.NewGuid(),
             MarketingRecordId = record.Id,
@@ -215,7 +215,9 @@ public class MarketingService(AppDbContext db, IAuditService audit) : IMarketing
             RecipientEmail = request.RecipientEmail,
             RecipientPhone = request.RecipientPhone,
             Notes = request.Notes,
-        });
+        };
+        db.RfqDispatches.Add(dispatch);
+        record.RfqDispatches.Add(dispatch);
 
         record.Status = MarketingRecordStatus.RfqSent;
         record.RfqPublishedAtgSite |= request.DispatchType == RfqDispatchType.AtgSite;
@@ -266,6 +268,7 @@ public class MarketingService(AppDbContext db, IAuditService audit) : IMarketing
             Source = request.Source,
             AttachmentKey = request.AttachmentKey,
         };
+        db.MarketingOffers.Add(offer);
         record.Offers.Add(offer);
         record.Status = MarketingRecordStatus.KpAnalysis;
         record.UpdatedAt = DateTime.UtcNow;
@@ -325,6 +328,7 @@ public class MarketingService(AppDbContext db, IAuditService audit) : IMarketing
             NdsNote = request.NdsNote,
             AttachmentKey = request.AttachmentKey,
         };
+        db.MarketingProcurementPlans.Add(plan);
         record.Plans.Add(plan);
         record.ProcurementMethod = request.ProcurementMethod;
         record.PlanPreparedAt = DateTime.UtcNow;
@@ -377,7 +381,7 @@ public class MarketingService(AppDbContext db, IAuditService audit) : IMarketing
         if (plan is null) return Result<MarketingRecordDto>.Fail("Plan not found");
 
         plan.Status = MarketingPlanStatus.PortalSubmitted;
-        record.PortalApprovals.Add(new MarketingPortalApproval
+        var approval = new MarketingPortalApproval
         {
             Id = Guid.NewGuid(),
             MarketingRecordId = record.Id,
@@ -385,7 +389,9 @@ public class MarketingService(AppDbContext db, IAuditService audit) : IMarketing
             ApprovalType = request.ApprovalType,
             SubmittedAt = DateTime.UtcNow,
             Notes = request.Notes,
-        });
+        };
+        db.MarketingPortalApprovals.Add(approval);
+        record.PortalApprovals.Add(approval);
         record.PortalApprovalStartedAt = DateTime.UtcNow;
         record.PortalApprovalType = request.ApprovalType;
         record.PlanSubmittedToPortalAt = DateTime.UtcNow;

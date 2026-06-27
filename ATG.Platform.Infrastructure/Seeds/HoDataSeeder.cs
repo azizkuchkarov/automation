@@ -11,6 +11,7 @@ public static class HoDataSeeder
     private static readonly Dictionary<string, string> LocalDevPasswords = new(StringComparer.OrdinalIgnoreCase)
     {
         ["pangshubao@atg.uz"] = "12345",
+        ["user2@atg.uz"] = "12345",
     };
 
     public static async Task SeedAsync(IServiceProvider services)
