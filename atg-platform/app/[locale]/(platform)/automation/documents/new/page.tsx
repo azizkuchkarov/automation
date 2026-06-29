@@ -18,7 +18,7 @@ export default function NewDocumentPage() {
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialSlug = searchParams.get("type") ?? "technical-assignments";
+  const initialSlug = searchParams.get("type") ?? "memo";
   const [typeSlug, setTypeSlug] = useState(initialSlug);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -76,7 +76,7 @@ export default function NewDocumentPage() {
                   onChange={(e) => setTypeSlug(e.target.value)}
                   className={cn(inputClass, "h-11")}
                 >
-                  {ALL_TYPE_SLUGS.map(({ slug }) => (
+                  {ALL_TYPE_SLUGS.filter(({ slug }) => slug !== "requests").map(({ slug }) => (
                     <option key={slug} value={slug}>
                       {t(`types.${slug}`)}
                     </option>

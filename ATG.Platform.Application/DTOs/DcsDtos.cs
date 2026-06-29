@@ -63,7 +63,11 @@ public record DocumentListItemDto(
     string DepartmentName,
     string DepartmentNameEn,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    ProcurementRequestFlow? ProcurementFlow = null,
+    ProcurementRequestPhase? ProcurementPhase = null,
+    int? ProcurementCurrentStep = null,
+    string? InitiatorName = null);
 
 public record DocumentActivityDto(
     Guid Id,

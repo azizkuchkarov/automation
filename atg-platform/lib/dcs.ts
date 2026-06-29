@@ -33,6 +33,10 @@ export interface DocumentListItem {
   departmentNameEn: string;
   createdAt: string;
   updatedAt: string;
+  procurementFlow?: "TechnicalAffairs" | "Express";
+  procurementPhase?: "InProgress" | "AwaitingApproval" | "Marketing" | "Contracts" | "Completed";
+  procurementCurrentStep?: number;
+  initiatorName?: string;
 }
 
 export interface DocumentActivity {
@@ -87,8 +91,6 @@ export const OFFICE_TYPES: { slug: string; type: DocumentType }[] = [
 
 export const PROCUREMENT_TYPES: { slug: string; type: DocumentType }[] = [
   { slug: "requests", type: "ProcurementRequest" },
-  { slug: "technical-assignments", type: "TechnicalAssignment" },
-  { slug: "mr-sr", type: "MaterialServiceRequisition" },
   { slug: "marketing", type: "Marketing" },
   { slug: "contracts", type: "Contract" },
   { slug: "payment", type: "Payment" },

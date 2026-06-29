@@ -5,14 +5,12 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   FilePlus,
-  ClipboardList,
   CreditCard,
   FileSignature,
   FileText,
   Inbox,
   Megaphone,
   MoreHorizontal,
-  Package,
   Plus,
   ScrollText,
   Search,
@@ -30,6 +28,7 @@ import {
   DOCUMENT_STATUSES,
   slugToType,
 } from "@/lib/dcs";
+import { phaseLabel, type ProcurementRequestPhase } from "@/lib/procurementRequest";
 import { DocumentStatusBadge } from "@/components/dcs/DocumentBadges";
 import { DcsPageHeader } from "@/components/dcs/DcsPageHeader";
 import { DcsEmptyState, DcsListSkeleton } from "@/components/dcs/DcsEmptyState";
@@ -43,9 +42,7 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   memo: FileText,
   minutes: Users,
   orders: ScrollText,
-  "technical-assignments": ClipboardList,
   requests: FilePlus,
-  "mr-sr": Package,
   marketing: Megaphone,
   contracts: FileSignature,
   payment: CreditCard,
@@ -59,15 +56,21 @@ const TYPE_ICON_BG: Record<string, string> = {
   memo: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   minutes: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
   orders: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-  "technical-assignments": "bg-atg-blue/10 text-atg-blue",
   requests: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  "mr-sr": "bg-teal-500/10 text-teal-600 dark:text-teal-400",
   marketing: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
   contracts: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   payment: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   accounting: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
   "supply-section": "bg-purple-500/10 text-purple-600 dark:text-purple-400",
 };
+
+const PROCUREMENT_PHASES: ProcurementRequestPhase[] = [
+  "InProgress",
+  "AwaitingApproval",
+  "Marketing",
+  "Contracts",
+  "Completed",
+];
 
 interface DocumentTypeListPageProps {
   typeSlug: string;
@@ -77,34 +80,51 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
   const t = useTranslations("dcs");
   const locale = useLocale();
   const docType = slugToType(typeSlug);
+  const isRequests = typeSlug === "requests";
   const [items, setItems] = useState<DocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "all">("all");
+  const [phaseFilter, setPhaseFilter] = useState<ProcurementRequestPhase | "all">("all");
+  const [canCreateRequest, setCanCreateRequest] = useState(false);
 
   useEffect(() => {
     if (!docType) return;
     setLoading(true);
+    const view = isRequests ? "involved" : "registry";
     api
-      .get(`/dcs/documents?type=${docType}&view=registry&pageSize=200`)
+      .get(`/dcs/documents?type=${docType}&view=${view}&pageSize=200`)
       .then((r) => setItems(r.data.items))
       .finally(() => setLoading(false));
-  }, [docType]);
+  }, [docType, isRequests]);
+
+  useEffect(() => {
+    if (!isRequests) return;
+    api
+      .get("/dcs/procurement-requests/create-options")
+      .then((r) => setCanCreateRequest(Boolean(r.data.canCreateTas || r.data.canCreateExpress)))
+      .catch(() => setCanCreateRequest(false));
+  }, [isRequests]);
 
   const filtered = useMemo(() => {
     let list = items;
-    if (statusFilter !== "all") list = list.filter((d) => d.status === statusFilter);
+    if (isRequests) {
+      if (phaseFilter !== "all") list = list.filter((d) => d.procurementPhase === phaseFilter);
+    } else if (statusFilter !== "all") {
+      list = list.filter((d) => d.status === statusFilter);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
         (d) =>
           d.number.toLowerCase().includes(q) ||
           d.title.toLowerCase().includes(q) ||
-          d.authorName.toLowerCase().includes(q)
+          d.authorName.toLowerCase().includes(q) ||
+          (d.initiatorName?.toLowerCase().includes(q) ?? false)
       );
     }
     return list;
-  }, [items, search, statusFilter]);
+  }, [items, search, statusFilter, phaseFilter, isRequests]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: items.length };
@@ -114,16 +134,24 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
     return counts;
   }, [items]);
 
+  const phaseCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: items.length };
+    for (const p of PROCUREMENT_PHASES) {
+      counts[p] = items.filter((d) => d.procurementPhase === p).length;
+    }
+    return counts;
+  }, [items]);
+
   if (!docType) return null;
 
   const title = t(`types.${typeSlug}`);
   const subtitle = t(`typesDesc.${typeSlug}`);
-  const showNew = typeSlug !== "incoming";
+  const showNew = isRequests ? canCreateRequest : typeSlug !== "incoming";
   const newHref =
     typeSlug === "requests"
       ? `/${locale}/automation/procurement/requests/new`
       : `/${locale}/automation/documents/new?type=${typeSlug}`;
-  const TypeIcon = TYPE_ICONS[typeSlug] ?? ClipboardList;
+  const TypeIcon = TYPE_ICONS[typeSlug] ?? FileText;
 
   return (
     <>
@@ -149,9 +177,31 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
         <div className="px-6 py-6 space-y-5 max-w-[1440px]">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard label={t("stats.total")} value={items.length} accent="from-blue-600 to-sky-500" icon={TrendingUp} />
-            <StatCard label={t("status.InReview")} value={statusCounts.InReview ?? 0} accent="from-sky-500 to-cyan-500" />
-            <StatCard label={t("status.Approved")} value={statusCounts.Approved ?? 0} accent="from-emerald-500 to-teal-500" />
-            <StatCard label={t("status.Draft")} value={statusCounts.Draft ?? 0} accent="from-slate-500 to-slate-400" />
+            {isRequests ? (
+              <>
+                <StatCard
+                  label={phaseLabel("InProgress", locale)}
+                  value={phaseCounts.InProgress ?? 0}
+                  accent="from-sky-500 to-cyan-500"
+                />
+                <StatCard
+                  label={phaseLabel("AwaitingApproval", locale)}
+                  value={phaseCounts.AwaitingApproval ?? 0}
+                  accent="from-amber-500 to-orange-500"
+                />
+                <StatCard
+                  label={phaseLabel("Marketing", locale)}
+                  value={phaseCounts.Marketing ?? 0}
+                  accent="from-pink-500 to-rose-500"
+                />
+              </>
+            ) : (
+              <>
+                <StatCard label={t("status.InReview")} value={statusCounts.InReview ?? 0} accent="from-sky-500 to-cyan-500" />
+                <StatCard label={t("status.Approved")} value={statusCounts.Approved ?? 0} accent="from-emerald-500 to-teal-500" />
+                <StatCard label={t("status.Draft")} value={statusCounts.Draft ?? 0} accent="from-slate-500 to-slate-400" />
+              </>
+            )}
           </div>
 
           <div className={cn("p-4 flex flex-col sm:flex-row sm:items-center gap-3", dcsTheme.premiumCard)}>
@@ -170,22 +220,32 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
             </div>
             <div className="flex flex-wrap gap-1.5 p-1.5 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/[0.06]">
               <FilterChip
-                active={statusFilter === "all"}
-                onClick={() => setStatusFilter("all")}
+                active={(isRequests ? phaseFilter : statusFilter) === "all"}
+                onClick={() => (isRequests ? setPhaseFilter("all") : setStatusFilter("all"))}
                 label={t("filters.all")}
-                count={statusCounts.all}
+                count={isRequests ? phaseCounts.all : statusCounts.all}
               />
-              {DOCUMENT_STATUSES.filter((s) => (statusCounts[s] ?? 0) > 0 || statusFilter === s).map(
-                (s) => (
-                  <FilterChip
-                    key={s}
-                    active={statusFilter === s}
-                    onClick={() => setStatusFilter(s)}
-                    label={t(`status.${s}`)}
-                    count={statusCounts[s] ?? 0}
-                  />
-                )
-              )}
+              {isRequests
+                ? PROCUREMENT_PHASES.filter((p) => (phaseCounts[p] ?? 0) > 0 || phaseFilter === p).map((p) => (
+                    <FilterChip
+                      key={p}
+                      active={phaseFilter === p}
+                      onClick={() => setPhaseFilter(p)}
+                      label={phaseLabel(p, locale)}
+                      count={phaseCounts[p] ?? 0}
+                    />
+                  ))
+                : DOCUMENT_STATUSES.filter((s) => (statusCounts[s] ?? 0) > 0 || statusFilter === s).map(
+                    (s) => (
+                      <FilterChip
+                        key={s}
+                        active={statusFilter === s}
+                        onClick={() => setStatusFilter(s)}
+                        label={t(`status.${s}`)}
+                        count={statusCounts[s] ?? 0}
+                      />
+                    )
+                  )}
             </div>
           </div>
 
@@ -197,8 +257,12 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                     <th className="px-5 py-3.5 font-bold w-10" />
                     <th className="px-4 py-3.5 font-bold w-36">{t("fields.regNum")}</th>
                     <th className="px-4 py-3.5 font-bold">{t("fields.title")}</th>
-                    <th className="px-4 py-3.5 font-bold w-32">{t("fields.status")}</th>
-                    <th className="px-4 py-3.5 font-bold w-44">{t("fields.author")}</th>
+                    <th className="px-4 py-3.5 font-bold w-40">
+                      {isRequests ? t("request.phase") : t("fields.status")}
+                    </th>
+                    <th className="px-4 py-3.5 font-bold w-44">
+                      {isRequests ? t("request.initiator") : t("fields.author")}
+                    </th>
                     <th className="px-4 py-3.5 font-bold w-28">{t("fields.updated")}</th>
                   </tr>
                 </thead>
@@ -254,16 +318,31 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                           </Link>
                         </td>
                         <td className="px-4 py-3.5">
-                          <DocumentStatusBadge status={doc.status} />
+                          {isRequests && doc.procurementPhase ? (
+                            <ProcurementPhaseBadge
+                              phase={doc.procurementPhase}
+                              step={doc.procurementCurrentStep}
+                              locale={locale}
+                            />
+                          ) : (
+                            <DocumentStatusBadge status={doc.status} />
+                          )}
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500/20 to-blue-600/15 flex items-center justify-center text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0 ring-1 ring-sky-500/10">
-                              {doc.authorName.charAt(0)}
+                              {(isRequests ? doc.initiatorName ?? doc.authorName : doc.authorName).charAt(0)}
                             </div>
-                            <span className="text-foreground/60 text-[13px] truncate">
-                              {doc.authorName}
-                            </span>
+                            <div className="min-w-0">
+                              <span className="text-foreground/60 text-[13px] truncate block">
+                                {isRequests ? doc.initiatorName ?? doc.authorName : doc.authorName}
+                              </span>
+                              {isRequests && doc.initiatorName && (
+                                <span className="text-[11px] text-foreground/35 truncate block">
+                                  {t("request.createdBy", { name: doc.authorName })}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-3.5 text-foreground/45 text-[13px] tabular-nums">
@@ -289,6 +368,40 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
         </div>
       </div>
     </>
+  );
+}
+
+function ProcurementPhaseBadge({
+  phase,
+  step,
+  locale,
+}: {
+  phase: ProcurementRequestPhase;
+  step?: number;
+  locale: string;
+}) {
+  const label =
+    step && (phase === "InProgress" || phase === "Marketing")
+      ? `${phaseLabel(phase, locale)} · ${locale.startsWith("en") ? "Step" : "Шаг"} ${step}`
+      : phaseLabel(phase, locale);
+
+  const colors: Record<ProcurementRequestPhase, string> = {
+    InProgress: "bg-sky-500/12 text-sky-700 dark:text-sky-300 border-sky-500/25",
+    AwaitingApproval: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
+    Marketing: "bg-pink-500/12 text-pink-700 dark:text-pink-300 border-pink-500/25",
+    Contracts: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
+    Completed: "bg-slate-500/12 text-slate-600 dark:text-slate-300 border-slate-500/25",
+  };
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border",
+        colors[phase]
+      )}
+    >
+      {label}
+    </span>
   );
 }
 

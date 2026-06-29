@@ -27,6 +27,9 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
         var actor = await GetActorAsync(actorId, ct);
         if (actor is null) return Result<PagedResult<DocumentListItemDto>>.Fail("User not found");
 
+        if (type == DocumentType.ProcurementRequest)
+            return await GetProcurementRequestsAsync(actor, actorId, view, page, pageSize, status, ct);
+
         var query = DocumentQuery().Where(d => d.Type == type);
 
         query = view.ToLowerInvariant() switch
@@ -48,7 +51,7 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
             .ToListAsync(ct);
 
         return Result<PagedResult<DocumentListItemDto>>.Ok(new PagedResult<DocumentListItemDto>(
-            items.Select(MapListItem).ToList(), total, page, pageSize));
+            items.Select(d => MapListItem(d)).ToList(), total, page, pageSize));
     }
 
     public async Task<Result<DocumentDto>> GetByIdAsync(Guid id, Guid actorId, CancellationToken ct = default)
@@ -57,7 +60,7 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
         if (doc is null) return Result<DocumentDto>.Fail("Document not found");
 
         var actor = await GetActorAsync(actorId, ct);
-        if (actor is null || !CanView(actor, doc))
+        if (actor is null || !await CanViewDocumentAsync(actor, actorId, doc, ct))
             return Result<DocumentDto>.Fail("Access denied");
 
         return Result<DocumentDto>.Ok(MapDocument(doc));
@@ -156,7 +159,7 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
             .ToListAsync(ct);
 
         return Result<DcsDashboardDto>.Ok(new DcsDashboardDto(
-            draft, inReview, approved, archived, recent.Select(MapListItem).ToList()));
+            draft, inReview, approved, archived, recent.Select(d => MapListItem(d)).ToList()));
     }
 
     public async Task<Result<DcsAdminControlDto>> GetAdminControlAsync(Guid actorId, CancellationToken ct = default)
@@ -264,6 +267,66 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
     private static DcsStaffDto MapStaff(User u) => new(
         u.Id, u.EmployeeId, u.FullName, u.Email, u.Role.ToString(), u.JobTitleEn, u.JobTitleRu);
 
+    private async Task<Result<PagedResult<DocumentListItemDto>>> GetProcurementRequestsAsync(
+        User actor,
+        Guid actorId,
+        string view,
+        int page,
+        int pageSize,
+        DocumentStatus? status,
+        CancellationToken ct)
+    {
+        var query = DocumentQuery().Where(d => d.Type == DocumentType.ProcurementRequest);
+
+        query = view.ToLowerInvariant() switch
+        {
+            "mine" => query.Where(d => d.AuthorId == actorId),
+            "registry" or "department" when IsPlatformAdmin(actor) || IsDeptManager(actor) =>
+                query.Where(d => d.OrganizationId == actor.OrganizationId),
+            "all" when IsPlatformAdmin(actor) => query,
+            _ => FilterProcurementInvolved(query, actor, actorId)
+        };
+
+        if (status.HasValue) query = query.Where(d => d.Status == status);
+
+        var total = await query.CountAsync(ct);
+        var docs = await query
+            .OrderByDescending(d => d.UpdatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        var docIds = docs.Select(d => d.Id).ToList();
+        var details = await db.ProcurementRequestDetails.AsNoTracking()
+            .Include(d => d.Initiator)
+            .Where(d => docIds.Contains(d.DocumentId))
+            .ToDictionaryAsync(d => d.DocumentId, ct);
+
+        var items = docs.Select(d =>
+        {
+            details.TryGetValue(d.Id, out var detail);
+            return MapListItem(d, detail);
+        }).ToList();
+
+        return Result<PagedResult<DocumentListItemDto>>.Ok(new PagedResult<DocumentListItemDto>(
+            items, total, page, pageSize));
+    }
+
+    private IQueryable<Document> FilterProcurementInvolved(IQueryable<Document> query, User actor, Guid actorId)
+    {
+        if (IsPlatformAdmin(actor)) return query;
+
+        return query.Where(d =>
+            d.AuthorId == actorId ||
+            d.AssigneeId == actorId ||
+            db.ProcurementRequestDetails.Any(prd =>
+                prd.DocumentId == d.Id && (
+                    prd.InitiatorId == actorId ||
+                    prd.MarketingSpecialistId == actorId)) ||
+            db.ProcurementRequestApprovers.Any(a => a.DocumentId == d.Id && a.UserId == actorId) ||
+            (IsDeptManager(actor) && d.DepartmentId == actor.DepartmentId));
+    }
+
     private async Task<string> GenerateNumberAsync(DocumentType type, CancellationToken ct)
     {
         var year = DateTime.UtcNow.Year;
@@ -319,6 +382,48 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
     private static bool IsDeptManager(User u) =>
         u.Role is UserRole.HONachalnik or UserRole.BMGMCNachalnikiOtdeli or UserRole.BMGMCManager;
 
+    private const string HoMkt = "HO-MKT";
+    private const string HoMktMkt = "HO-MKT-MKT";
+    private const string HoMktTnd = "HO-MKT-TND";
+
+    private async Task<bool> CanViewDocumentAsync(User actor, Guid actorId, Document doc, CancellationToken ct)
+    {
+        if (IsPlatformAdmin(actor)) return true;
+
+        if (doc.Type == DocumentType.ProcurementRequest)
+            return await CanViewProcurementRequestAsync(actor, actorId, doc, ct);
+
+        return doc.OrganizationId == actor.OrganizationId;
+    }
+
+    private async Task<bool> CanViewProcurementRequestAsync(
+        User actor, Guid actorId, Document doc, CancellationToken ct)
+    {
+        if (doc.AuthorId == actorId) return true;
+        if (doc.AssigneeId == actorId) return true;
+
+        var detail = await db.ProcurementRequestDetails.AsNoTracking()
+            .Include(d => d.Approvers)
+            .FirstOrDefaultAsync(d => d.DocumentId == doc.Id, ct);
+
+        if (detail is null)
+            return doc.OrganizationId == actor.OrganizationId;
+
+        if (detail.InitiatorId == actorId) return true;
+        if (detail.MarketingSpecialistId == actorId) return true;
+        if (detail.Approvers.Any(a => a.UserId == actorId)) return true;
+        if (detail.Phase == ProcurementRequestPhase.Marketing && IsMarketingStaff(actor)) return true;
+        if (actor.DepartmentId == doc.DepartmentId && IsDeptManager(actor)) return true;
+
+        return false;
+    }
+
+    private static bool IsMarketingDeptCode(string? code) =>
+        code is HoMkt or HoMktMkt or HoMktTnd;
+
+    private static bool IsMarketingStaff(User u) =>
+        IsPlatformAdmin(u) || IsMarketingDeptCode(u.Department?.Code);
+
     private static bool CanView(User actor, Document doc) =>
         IsPlatformAdmin(actor) ||
         doc.OrganizationId == actor.OrganizationId;
@@ -328,11 +433,17 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
         doc.AuthorId == actor.Id ||
         (IsDeptManager(actor) && actor.DepartmentId == doc.DepartmentId);
 
-    private static DocumentListItemDto MapListItem(Document d) => new(
+    private static DocumentListItemDto MapListItem(Document d, ProcurementRequestDetail? procurement = null) => new(
         d.Id, d.Number, d.Title, d.Type, d.Status,
         d.Author.FullName, d.Assignee?.FullName,
         d.Department.Name, d.Department.NameEn,
-        d.CreatedAt, d.UpdatedAt);
+        d.CreatedAt, d.UpdatedAt,
+        procurement?.Flow,
+        procurement?.Phase,
+        procurement?.Phase == ProcurementRequestPhase.InProgress ? procurement.CurrentStep
+            : procurement?.Phase == ProcurementRequestPhase.Marketing ? procurement.MarketingCurrentStep
+            : null,
+        procurement?.Initiator?.FullName);
 
     private static DocumentDto MapDocument(Document d) => new(
         d.Id, d.Number, d.Title, d.Description, d.Type, d.Status,

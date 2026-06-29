@@ -9,7 +9,6 @@ import {
   Calculator,
   ChevronDown,
   ChevronRight,
-  ClipboardList,
   CreditCard,
   FilePlus,
   FileSignature,
@@ -17,7 +16,6 @@ import {
   Inbox,
   LayoutDashboard,
   Megaphone,
-  Package,
   ScrollText,
   Send,
   Sparkles,
@@ -38,8 +36,6 @@ const OFFICE_ICONS: Record<string, LucideIcon> = {
 
 const PROCUREMENT_ICONS: Record<string, LucideIcon> = {
   requests: FilePlus,
-  "technical-assignments": ClipboardList,
-  "mr-sr": Package,
   marketing: Megaphone,
   contracts: FileSignature,
   payment: CreditCard,

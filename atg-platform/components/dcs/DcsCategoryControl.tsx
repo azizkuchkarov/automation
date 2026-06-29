@@ -41,8 +41,6 @@ const OFFICE_ORDER: DocumentType[] = [
 
 const PROCUREMENT_ORDER: DocumentType[] = [
   "ProcurementRequest",
-  "TechnicalAssignment",
-  "MaterialServiceRequisition",
   "Marketing",
   "Contract",
   "Payment",

@@ -6,5 +6,5 @@ export default async function AutomationIndexPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  redirect(`/${locale}/automation/procurement/technical-assignments`);
+  redirect(`/${locale}/automation/procurement/requests`);
 }
