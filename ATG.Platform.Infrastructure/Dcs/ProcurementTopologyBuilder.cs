@@ -119,7 +119,7 @@ public static class ProcurementTopologyBuilder
             contractsActive ? ProcurementTopologyNodeStatus.Active
                 : contractsDone ? ProcurementTopologyNodeStatus.Completed
                 : ProcurementTopologyNodeStatus.Pending,
-            contractsActive || contractsDone ? detail.Document.Assignee?.FullName : null,
+            contractsActive || contractsDone ? detail.ContractsSpecialist?.FullName ?? detail.Document.Assignee?.FullName : null,
             activities.LastOrDefault(a => a.Action == "handoff_contracts")?.CreatedAt));
 
         return nodes;

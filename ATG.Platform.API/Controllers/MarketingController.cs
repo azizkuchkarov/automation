@@ -72,6 +72,27 @@ public class MarketingController(IMarketingService marketing, IFileStorageServic
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("records/by-document/{documentId:guid}/rfq/document")]
+    public async Task<IActionResult> UploadRfqDocument(Guid documentId, [FromBody] UploadRfqDocumentRequest request, CancellationToken ct)
+    {
+        var result = await marketing.UploadRfqDocumentAsync(documentId, request, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("records/by-document/{documentId:guid}/rfq/channels/atg-website")]
+    public async Task<IActionResult> OpenAtgWebsiteChannel(Guid documentId, CancellationToken ct)
+    {
+        var result = await marketing.OpenRfqAtgWebsiteChannelAsync(documentId, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("records/by-document/{documentId:guid}/rfq/channels/tenderweek")]
+    public async Task<IActionResult> OpenTenderChannel(Guid documentId, CancellationToken ct)
+    {
+        var result = await marketing.OpenRfqTenderChannelAsync(documentId, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("records/by-document/{documentId:guid}/rfq/dispatch")]
     public async Task<IActionResult> AddRfqDispatch(Guid documentId, [FromBody] AddRfqDispatchRequest request, CancellationToken ct)
     {

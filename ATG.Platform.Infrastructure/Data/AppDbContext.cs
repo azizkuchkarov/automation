@@ -20,13 +20,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DocumentActivity> DocumentActivities => Set<DocumentActivity>();
     public DbSet<ProcurementRequestDetail> ProcurementRequestDetails => Set<ProcurementRequestDetail>();
     public DbSet<ProcurementRequestApprover> ProcurementRequestApprovers => Set<ProcurementRequestApprover>();
+    public DbSet<ProcurementMarketingPlanApprover> ProcurementMarketingPlanApprovers => Set<ProcurementMarketingPlanApprover>();
     public DbSet<ProcurementRequestAttachment> ProcurementRequestAttachments => Set<ProcurementRequestAttachment>();
+    public DbSet<ProcurementStepComment> ProcurementStepComments => Set<ProcurementStepComment>();
     public DbSet<IncomingLetterDetail> IncomingLetterDetails => Set<IncomingLetterDetail>();
     public DbSet<IncomingLetterRecipient> IncomingLetterRecipients => Set<IncomingLetterRecipient>();
     public DbSet<IncomingLetterComment> IncomingLetterComments => Set<IncomingLetterComment>();
     public DbSet<MarketingRecord> MarketingRecords => Set<MarketingRecord>();
     public DbSet<MarketingOffer> MarketingOffers => Set<MarketingOffer>();
     public DbSet<RfqDispatch> RfqDispatches => Set<RfqDispatch>();
+    public DbSet<MarketingRfqChannelRequest> MarketingRfqChannelRequests => Set<MarketingRfqChannelRequest>();
     public DbSet<MarketingProcurementPlan> MarketingProcurementPlans => Set<MarketingProcurementPlan>();
     public DbSet<MarketingPortalApproval> MarketingPortalApprovals => Set<MarketingPortalApproval>();
 
@@ -111,7 +114,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(x => x.Id);
             e.Property(x => x.Number).HasMaxLength(20);
             e.HasIndex(x => x.Number).IsUnique();
-            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Title).HasMaxLength(500);
             e.Property(x => x.Description).HasMaxLength(4000);
             e.Property(x => x.Category).HasConversion<string>().HasMaxLength(30);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
@@ -150,7 +153,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(x => x.Id);
             e.Property(x => x.Number).HasMaxLength(20);
             e.HasIndex(x => x.Number).IsUnique();
-            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Title).HasMaxLength(500);
             e.Property(x => x.Description).HasMaxLength(4000);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Priority).HasConversion<string>().HasMaxLength(20);
@@ -167,12 +170,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(x => x.Id);
             e.Property(x => x.Number).HasMaxLength(30);
             e.HasIndex(x => x.Number).IsUnique();
-            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Title).HasMaxLength(500);
             e.Property(x => x.Description).HasMaxLength(4000);
             e.Property(x => x.Type).HasConversion<string>().HasMaxLength(40);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.ExternalReference).HasMaxLength(100);
-            e.Property(x => x.TitleRu).HasMaxLength(200);
+            e.Property(x => x.TitleRu).HasMaxLength(500);
             e.Property(x => x.IncomingNumber).HasMaxLength(50);
             e.Property(x => x.RecordBook).HasMaxLength(100);
             e.Property(x => x.SenderName).HasMaxLength(200);
@@ -203,14 +206,32 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Flow).HasConversion<string>().HasMaxLength(30);
             e.Property(x => x.Phase).HasConversion<string>().HasMaxLength(30);
             e.Property(x => x.MarketingSubPhase).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.ContractsSubPhase).HasConversion<string>().HasMaxLength(30);
             e.Property(x => x.MarketingActiveBranch).HasConversion<string>().HasMaxLength(30);
             e.Property(x => x.MarketingCurrentStep).HasDefaultValue(1);
             e.Property(x => x.EamNumber).HasMaxLength(50);
+            e.Property(x => x.Region).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.RegionLabelRu).HasMaxLength(150);
+            e.Property(x => x.RegionLabelEn).HasMaxLength(150);
+            e.Property(x => x.Priority).HasConversion<string>().HasMaxLength(20);
             e.HasOne(x => x.Document).WithOne().HasForeignKey<ProcurementRequestDetail>(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Initiator).WithMany().HasForeignKey(x => x.InitiatorId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.InitiatorDepartment).WithMany().HasForeignKey(x => x.InitiatorDepartmentId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.MarketingSpecialist).WithMany().HasForeignKey(x => x.MarketingSpecialistId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ContractsSpecialist).WithMany().HasForeignKey(x => x.ContractsSpecialistId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(x => x.MarketingPlanRegistrationNumber).HasMaxLength(50);
             e.HasOne(x => x.MarketingRecord).WithOne(x => x.Request).HasForeignKey<MarketingRecord>(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProcurementMarketingPlanApprover>(e =>
+        {
+            e.ToTable("procurement_marketing_plan_approvers");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.DocumentId);
+            e.Property(x => x.Role).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.HasOne(x => x.Request).WithMany(x => x.MarketingPlanApprovers).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<MarketingRecord>(e =>
@@ -236,6 +257,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(50);
             e.Property(x => x.RequestCategory).HasConversion<int?>();
             e.Property(x => x.BudgetAmount).HasPrecision(15, 2);
+            e.Property(x => x.RfqDocumentStorageKey).HasMaxLength(500);
+            e.Property(x => x.RfqDocumentFileName).HasMaxLength(255);
             e.HasOne(x => x.MarketingExecutor).WithMany().HasForeignKey(x => x.MarketingExecutorId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.AssignedByManager).WithMany().HasForeignKey(x => x.AssignedByManagerId).OnDelete(DeleteBehavior.SetNull);
         });
@@ -262,6 +285,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.RecipientEmail).HasMaxLength(255);
             e.Property(x => x.RecipientPhone).HasMaxLength(50);
             e.HasOne(x => x.Record).WithMany(x => x.RfqDispatches).HasForeignKey(x => x.MarketingRecordId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MarketingRfqChannelRequest>(e =>
+        {
+            e.ToTable("marketing_rfq_channel_requests");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.MarketingRecordId);
+            e.HasIndex(x => x.DocumentId);
+            e.HasIndex(x => x.HelpDeskTicketId);
+            e.HasIndex(x => x.WorkTaskId);
+            e.Property(x => x.Channel).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.ExternalNumber).HasMaxLength(50);
+            e.HasOne(x => x.Record).WithMany(x => x.RfqChannelRequests).HasForeignKey(x => x.MarketingRecordId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.AssignedUser).WithMany().HasForeignKey(x => x.AssignedUserId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<MarketingProcurementPlan>(e =>
@@ -307,6 +345,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.StorageKey).HasMaxLength(500);
             e.HasOne(x => x.Request).WithMany(x => x.Attachments).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.UploadedBy).WithMany().HasForeignKey(x => x.UploadedById).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProcurementStepComment>(e =>
+        {
+            e.ToTable("procurement_step_comments");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.DocumentId, x.Phase, x.StepNumber });
+            e.Property(x => x.Phase).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Body).HasMaxLength(4000);
+            e.HasOne(x => x.Request).WithMany(x => x.StepComments).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Author).WithMany().HasForeignKey(x => x.AuthorId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<IncomingLetterDetail>(e =>

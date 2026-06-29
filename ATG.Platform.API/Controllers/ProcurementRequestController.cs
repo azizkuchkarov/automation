@@ -64,9 +64,9 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
     }
 
     [HttpPost("{id:guid}/steps/{step:int}/complete")]
-    public async Task<IActionResult> CompleteStep(Guid id, int step, CancellationToken ct)
+    public async Task<IActionResult> CompleteStep(Guid id, int step, [FromBody] CompleteProcurementStepRequest? request, CancellationToken ct)
     {
-        var result = await requests.CompleteStepAsync(id, step, GetUserId()!.Value, GetIp(), ct);
+        var result = await requests.CompleteStepAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -98,6 +98,27 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpGet("contracts/workers")]
+    public async Task<IActionResult> GetContractsWorkers(CancellationToken ct)
+    {
+        var result = await requests.GetContractsWorkersAsync(GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/accept")]
+    public async Task<IActionResult> AcceptContracts(Guid id, [FromBody] AcceptContractsRequest request, CancellationToken ct)
+    {
+        var result = await requests.AcceptContractsAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/assign")]
+    public async Task<IActionResult> AssignContractsSpecialist(Guid id, [FromBody] AssignContractsSpecialistRequest request, CancellationToken ct)
+    {
+        var result = await requests.AssignContractsSpecialistAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     [HttpGet("marketing/steps")]
     public IActionResult GetMarketingSteps() => Ok(requests.GetMarketingSteps());
 
@@ -116,9 +137,9 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
     }
 
     [HttpPost("{id:guid}/marketing/accept")]
-    public async Task<IActionResult> AcceptMarketing(Guid id, CancellationToken ct)
+    public async Task<IActionResult> AcceptMarketing(Guid id, [FromBody] AcceptMarketingRequest request, CancellationToken ct)
     {
-        var result = await requests.AcceptMarketingAsync(id, GetUserId()!.Value, GetIp(), ct);
+        var result = await requests.AcceptMarketingAsync(id, request, GetUserId()!.Value, GetIp(), ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -147,6 +168,48 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
     public async Task<IActionResult> RecordMarketingBranch(Guid id, [FromBody] MarketingBranchRequest request, CancellationToken ct)
     {
         var result = await requests.RecordMarketingBranchAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("marketing/plan-approver-users")]
+    public async Task<IActionResult> GetMarketingPlanApproverUsers([FromQuery] string? search, CancellationToken ct)
+    {
+        var result = await requests.GetMarketingPlanApproverUsersAsync(GetUserId()!.Value, search, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/marketing/plan/submit")]
+    public async Task<IActionResult> SubmitMarketingPlanApproval(Guid id, [FromBody] SubmitMarketingPlanApprovalRequest request, CancellationToken ct)
+    {
+        var result = await requests.SubmitMarketingPlanApprovalAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/marketing/plan/approve")]
+    public async Task<IActionResult> ApproveMarketingPlan(Guid id, [FromBody] ProcurementApprovalRequest request, CancellationToken ct)
+    {
+        var result = await requests.ApproveMarketingPlanAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/marketing/plan/reject")]
+    public async Task<IActionResult> RejectMarketingPlan(Guid id, [FromBody] ProcurementApprovalRequest request, CancellationToken ct)
+    {
+        var result = await requests.RejectMarketingPlanAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/marketing/register")]
+    public async Task<IActionResult> ConfirmMarketingRegistration(Guid id, [FromBody] ConfirmMarketingRegistrationRequest request, CancellationToken ct)
+    {
+        var result = await requests.ConfirmMarketingRegistrationAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/comments")]
+    public async Task<IActionResult> AddStepComment(Guid id, [FromBody] AddProcurementStepCommentRequest request, CancellationToken ct)
+    {
+        var result = await requests.AddStepCommentAsync(id, request, GetUserId()!.Value, GetIp(), ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 

@@ -37,6 +37,7 @@ export interface DocumentListItem {
   procurementPhase?: "InProgress" | "AwaitingApproval" | "Marketing" | "Contracts" | "Completed";
   procurementCurrentStep?: number;
   initiatorName?: string;
+  priority?: "Low" | "Medium" | "High" | "Critical";
 }
 
 export interface DocumentActivity {

@@ -54,7 +54,23 @@ public record ProcurementApproverDto(
 
     DateTime? DecidedAt,
 
-    string? Comment);
+    string? Comment,
+
+    string? DepartmentName,
+
+    string? DepartmentNameEn,
+
+    string? OrganizationName,
+
+    string? OrganizationNameEn,
+
+    string? JobTitleRu,
+
+    string? JobTitleEn,
+
+    string UserEmail,
+
+    string? EmployeeId);
 
 
 
@@ -158,6 +174,14 @@ public record ProcurementRequestDto(
 
     string? InitiatorDepartmentNameEn,
 
+    ProcurementRegion Region,
+
+    string? RegionLabelRu,
+
+    string? RegionLabelEn,
+
+    TaskPriority Priority,
+
     string? EamNumber,
 
     DateTime? EamFormationDate,
@@ -192,9 +216,33 @@ public record ProcurementRequestDto(
 
     DateTime? MarketingAcceptedAt,
 
+    DateTime? MarketingAssignedAt,
+
     DateTime? MarketingCompletedAt,
 
+    ProcurementContractsSubPhase ContractsSubPhase,
+
+    Guid? ContractsSpecialistId,
+
+    string? ContractsSpecialistName,
+
+    DateTime? ContractsAssignedAt,
+
+    DateTime? ContractsAcceptedAt,
+
     ProcurementMarketingPermissionsDto? MarketingPermissions,
+
+    ProcurementContractsPermissionsDto? ContractsPermissions,
+
+    DateTime? MarketingPlanApprovalSubmittedAt,
+
+    string? MarketingPlanRegistrationNumber,
+
+    DateTime? MarketingPlanRegisteredAt,
+
+    ProcurementMarketingPlanPermissionsDto? MarketingPlanPermissions,
+
+    IReadOnlyList<ProcurementMarketingPlanApproverDto> MarketingPlanApprovers,
 
     int MarketingCurrentStep,
 
@@ -212,11 +260,17 @@ public record ProcurementRequestDto(
 
     IReadOnlyList<ProcurementTimelineEventDto> Timeline,
 
+    IReadOnlyList<ProcurementStepCommentDto> StepComments,
+
     IReadOnlyList<ProcurementTopologyNodeDto> Topology,
 
     DateTime CreatedAt,
 
     DateTime UpdatedAt);
+
+
+
+public record CompleteProcurementStepRequest(string? Comment);
 
 
 
@@ -232,7 +286,11 @@ public record CreateTasProcurementRequest(
 
     DateTime EamFormationDate,
 
-    DateTime Deadline);
+    DateTime Deadline,
+
+    TaskPriority Priority = TaskPriority.Medium,
+
+    IReadOnlyList<ExpressAttachmentInput>? Attachments = null);
 
 
 
@@ -246,7 +304,9 @@ public record CreateExpressProcurementRequest(
 
     IReadOnlyList<ExpressApproverInput> Approvers,
 
-    IReadOnlyList<ExpressAttachmentInput> Attachments);
+    IReadOnlyList<ExpressAttachmentInput> Attachments,
+
+    TaskPriority Priority = TaskPriority.Medium);
 
 
 
@@ -276,7 +336,35 @@ public record ProcurementCreateOptionsDto(
 
     bool CanCreateExpress,
 
-    ProcurementRequestFlow? DefaultFlow);
+    ProcurementRequestFlow? DefaultFlow,
+
+    ProcurementRequestFormContextDto? FormContext);
+
+
+
+public record ProcurementRequestFormContextDto(
+
+    ProcurementRegion Region,
+
+    string RegionLabelRu,
+
+    string RegionLabelEn,
+
+    DateTime RegDate,
+
+    Guid? InitiatingDepartmentId,
+
+    string? InitiatingDepartmentName,
+
+    string? InitiatingDepartmentNameEn,
+
+    Guid InitiatingEmployeeId,
+
+    string InitiatingEmployeeName,
+
+    bool RequiresEamNumber,
+
+    bool IsTasStaff);
 
 
 
@@ -348,9 +436,73 @@ public record ProcurementMarketingQueueItemDto(
 
 
 
+public record ProcurementStepCommentDto(
+
+    Guid Id,
+
+    ProcurementWorkflowPhase Phase,
+
+    int StepNumber,
+
+    Guid AuthorId,
+
+    string AuthorName,
+
+    string Body,
+
+    ProcurementStepCommentKind Kind,
+
+    DateTime CreatedAt);
+
+
+
 public record AssignMarketingSpecialistRequest(Guid SpecialistId, string? Comment);
 
 
+
+public record AcceptMarketingRequest(string? Comment);
+
+
+
+public record ProcurementContractsPermissionsDto(
+
+    bool CanAccept,
+
+    bool CanAssign);
+
+
+
+public record AssignContractsSpecialistRequest(Guid SpecialistId, string? Comment);
+
+
+
+public record AcceptContractsRequest(string? Comment);
+
+
+
+public record ProcurementMarketingPlanApproverDto(
+    Guid Id,
+    Guid UserId,
+    string UserName,
+    ProcurementMarketingPlanApproverRole Role,
+    ProcurementApproverStatus Status,
+    int SortOrder,
+    DateTime? DecidedAt,
+    string? Comment,
+    string? DepartmentName,
+    string? DepartmentNameEn,
+    string UserEmail);
+
+public record MarketingPlanApproverInput(Guid UserId, ProcurementMarketingPlanApproverRole Role);
+
+public record SubmitMarketingPlanApprovalRequest(IReadOnlyList<MarketingPlanApproverInput> Approvers);
+
+public record ConfirmMarketingRegistrationRequest(string? Comment);
+
+public record ProcurementMarketingPlanPermissionsDto(
+    bool CanSubmit,
+    bool CanApprove,
+    bool CanConfirmRegistration);
 
 public record MarketingActionRequest(string? Comment);
 
@@ -361,5 +513,15 @@ public record CompleteMarketingStepRequest(Guid? SpecialistId, string? Comment);
 
 
 public record MarketingBranchRequest(MarketingBranchType Branch, string? Comment, bool Resolve);
+
+
+
+public record AddProcurementStepCommentRequest(
+
+    ProcurementWorkflowPhase Phase,
+
+    int StepNumber,
+
+    string Body);
 
 

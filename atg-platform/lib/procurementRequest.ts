@@ -12,7 +12,18 @@ export type ProcurementRequestPhase =
 
   | "Completed";
 
-export type ProcurementMarketingSubPhase = "Pending" | "InProgress" | "Completed";
+export type ProcurementMarketingSubPhase = "Pending" | "WaitingAccept" | "InProgress" | "Completed";
+
+export type ProcurementContractsSubPhase = "Pending" | "WaitingAccept" | "InProgress" | "Completed";
+
+export type ProcurementWorkflowPhase = "TechnicalAffairs" | "Approval" | "Marketing" | "Contracts";
+
+export type ProcurementStepCommentKind =
+  | "Note"
+  | "StepCompletion"
+  | "Branch"
+  | "Assignment"
+  | "Acceptance";
 
 export type MarketingBranchType =
   | "TzEscalation"
@@ -34,6 +45,11 @@ export type ProcurementApproverRole =
   | "TopManager";
 
 export type ProcurementApproverStatus = "Pending" | "Approved" | "Rejected";
+
+export type ProcurementMarketingPlanApproverRole =
+  | "PlanDeputyCeo"
+  | "PlanCeo"
+  | "PlanCommissionMember";
 
 export type ProcurementAttachmentKind =
 
@@ -110,6 +126,38 @@ export interface ProcurementApprover {
 
   comment?: string;
 
+  departmentName?: string;
+
+  departmentNameEn?: string;
+
+  organizationName?: string;
+
+  organizationNameEn?: string;
+
+  jobTitleRu?: string;
+
+  jobTitleEn?: string;
+
+  userEmail?: string;
+
+  employeeId?: string;
+
+}
+
+
+
+export interface ProcurementMarketingPlanApprover {
+  id: string;
+  userId: string;
+  userName: string;
+  role: ProcurementMarketingPlanApproverRole;
+  status: ProcurementApproverStatus;
+  sortOrder: number;
+  decidedAt?: string;
+  comment?: string;
+  departmentName?: string;
+  departmentNameEn?: string;
+  userEmail?: string;
 }
 
 
@@ -208,6 +256,14 @@ export interface ProcurementRequest {
 
   initiatorDepartmentNameEn?: string;
 
+  region?: "HeadOffice" | "Bmgmc" | "Station";
+
+  regionLabelRu?: string;
+
+  regionLabelEn?: string;
+
+  priority?: "Low" | "Medium" | "High" | "Critical";
+
   eamNumber?: string;
 
   eamFormationDate?: string;
@@ -242,9 +298,33 @@ export interface ProcurementRequest {
 
   marketingAcceptedAt?: string;
 
+  marketingAssignedAt?: string;
+
   marketingCompletedAt?: string;
 
+  contractsSubPhase: ProcurementContractsSubPhase;
+
+  contractsSpecialistId?: string;
+
+  contractsSpecialistName?: string;
+
+  contractsAssignedAt?: string;
+
+  contractsAcceptedAt?: string;
+
   marketingPermissions?: ProcurementMarketingPermissions;
+
+  contractsPermissions?: ProcurementContractsPermissions;
+
+  marketingPlanApprovalSubmittedAt?: string;
+
+  marketingPlanRegistrationNumber?: string;
+
+  marketingPlanRegisteredAt?: string;
+
+  marketingPlanPermissions?: ProcurementMarketingPlanPermissions;
+
+  marketingPlanApprovers?: ProcurementMarketingPlanApprover[];
 
   marketingCurrentStep: number;
 
@@ -261,6 +341,8 @@ export interface ProcurementRequest {
   registeredAt?: string;
 
   timeline: ProcurementTimelineEvent[];
+
+  stepComments: ProcurementStepComment[];
 
   topology: ProcurementTopologyNode[];
 
@@ -280,9 +362,50 @@ export interface ProcurementCreateOptions {
 
   defaultFlow?: ProcurementRequestFlow;
 
+  formContext?: ProcurementRequestFormContext;
+
 }
 
 
+
+export interface ProcurementRequestFormContext {
+
+  region: "HeadOffice" | "Bmgmc" | "Station";
+
+  regionLabelRu: string;
+
+  regionLabelEn: string;
+
+  regDate: string;
+
+  initiatingDepartmentId?: string;
+
+  initiatingDepartmentName?: string;
+
+  initiatingDepartmentNameEn?: string;
+
+  initiatingEmployeeId: string;
+
+  initiatingEmployeeName: string;
+
+  requiresEamNumber: boolean;
+
+  isTasStaff: boolean;
+
+}
+
+
+
+export interface ProcurementStepComment {
+  id: string;
+  phase: ProcurementWorkflowPhase;
+  stepNumber: number;
+  authorId: string;
+  authorName: string;
+  body: string;
+  kind: ProcurementStepCommentKind;
+  createdAt: string;
+}
 
 export interface ProcurementMarketingPermissions {
 
@@ -301,6 +424,24 @@ export interface ProcurementMarketingPermissions {
   canResolveBranch: boolean;
 
   currentStep: number;
+
+}
+
+
+
+export interface ProcurementMarketingPlanPermissions {
+  canSubmit: boolean;
+  canApprove: boolean;
+  canConfirmRegistration: boolean;
+}
+
+
+
+export interface ProcurementContractsPermissions {
+
+  canAccept: boolean;
+
+  canAssign: boolean;
 
 }
 
@@ -424,6 +565,58 @@ export function approverRoleLabel(role: ProcurementApproverRole, locale: string)
 
 
 
+export const APPROVER_ROLE_ORDER: ProcurementApproverRole[] = [
+
+  "Initiator",
+
+  "TasManager",
+
+  "BmgmcTopManager",
+
+  "SectionHead",
+
+  "TopManager",
+
+];
+
+
+
+export function getNextPendingApprover(approvers: ProcurementApprover[]) {
+
+  return [...approvers]
+
+    .filter((a) => a.status === "Pending")
+
+    .sort((a, b) => APPROVER_ROLE_ORDER.indexOf(a.role) - APPROVER_ROLE_ORDER.indexOf(b.role))[0];
+
+}
+
+
+
+export function getNextPendingPlanApprover(approvers: ProcurementMarketingPlanApprover[]) {
+  return [...approvers]
+    .filter((a) => a.status === "Pending")
+    .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+}
+
+
+
+export function planApproverRoleLabel(role: ProcurementMarketingPlanApproverRole, locale: string) {
+  const ru: Record<ProcurementMarketingPlanApproverRole, string> = {
+    PlanDeputyCeo: "Первый зам. ген. директора",
+    PlanCeo: "Генеральный директор",
+    PlanCommissionMember: "Член закупочной комиссии",
+  };
+  const en: Record<ProcurementMarketingPlanApproverRole, string> = {
+    PlanDeputyCeo: "First Deputy CEO",
+    PlanCeo: "CEO",
+    PlanCommissionMember: "Procurement commission member",
+  };
+  return locale.startsWith("en") ? en[role] : ru[role];
+}
+
+
+
 export function attachmentKindLabel(kind: ProcurementAttachmentKind, locale: string) {
 
   const ru: Record<ProcurementAttachmentKind, string> = {
@@ -530,8 +723,6 @@ export function branchForMarketingStep(stepNumber: number): MarketingBranchType 
 
     7: "ManagementRevision",
 
-    9: "PortalExpedite",
-
   };
 
   return map[stepNumber] ?? null;
@@ -544,7 +735,9 @@ export function marketingSubPhaseLabel(subPhase: ProcurementMarketingSubPhase, l
 
   const ru: Record<ProcurementMarketingSubPhase, string> = {
 
-    Pending: "Ожидает принятия",
+    Pending: "Ожидает назначения",
+
+    WaitingAccept: "Ожидает принятия инженером",
 
     InProgress: "В работе",
 
@@ -554,7 +747,41 @@ export function marketingSubPhaseLabel(subPhase: ProcurementMarketingSubPhase, l
 
   const en: Record<ProcurementMarketingSubPhase, string> = {
 
-    Pending: "Pending acceptance",
+    Pending: "Awaiting assignment",
+
+    WaitingAccept: "Awaiting engineer acceptance",
+
+    InProgress: "In progress",
+
+    Completed: "Completed",
+
+  };
+
+  return locale.startsWith("en") ? en[subPhase] : ru[subPhase];
+
+}
+
+
+
+export function contractsSubPhaseLabel(subPhase: ProcurementContractsSubPhase, locale: string) {
+
+  const ru: Record<ProcurementContractsSubPhase, string> = {
+
+    Pending: "Ожидает назначения",
+
+    WaitingAccept: "Ожидает принятия инженером",
+
+    InProgress: "В работе",
+
+    Completed: "Завершено",
+
+  };
+
+  const en: Record<ProcurementContractsSubPhase, string> = {
+
+    Pending: "Awaiting assignment",
+
+    WaitingAccept: "Awaiting engineer acceptance",
 
     InProgress: "In progress",
 
@@ -640,13 +867,17 @@ export function timelineActionLabel(action: string, locale: string) {
 
     marketing_step_7_completed: "Шаг 7: план закупки",
 
-    marketing_step_8_completed: "Шаг 8: направление на портал",
+    marketing_step_8_completed: "Шаг 8: согласование плана закупки",
 
-    marketing_step_9_completed: "Шаг 9: мониторинг портала",
+    marketing_step_9_completed: "Шаг 9: регистрация маркетинга",
 
-    marketing_step_10_completed: "Шаг 10: регистрация плана",
+    marketing_plan_submitted: "План закупки направлен на согласование",
 
-    marketing_step_11_completed: "Шаг 11: маркетинг завершён",
+    marketing_plan_approved: "Согласование плана закупки",
+
+    marketing_plan_rejected: "План закупки отклонён",
+
+    marketing_plan_registered: "Маркетинговый процесс зарегистрирован",
 
     marketing_branch_recorded: "Зафиксировано отклонение",
 
@@ -692,13 +923,17 @@ export function timelineActionLabel(action: string, locale: string) {
 
     marketing_step_7_completed: "Step 7: procurement plan",
 
-    marketing_step_8_completed: "Step 8: portal submission",
+    marketing_step_8_completed: "Step 8: procurement plan approval",
 
-    marketing_step_9_completed: "Step 9: portal monitoring",
+    marketing_step_9_completed: "Step 9: marketing registration",
 
-    marketing_step_10_completed: "Step 10: plan registration",
+    marketing_plan_submitted: "Procurement plan submitted for approval",
 
-    marketing_step_11_completed: "Step 11: marketing completed",
+    marketing_plan_approved: "Procurement plan approved",
+
+    marketing_plan_rejected: "Procurement plan rejected",
+
+    marketing_plan_registered: "Marketing process registered",
 
     marketing_branch_recorded: "Branch deviation recorded",
 
@@ -712,4 +947,21 @@ export function timelineActionLabel(action: string, locale: string) {
 
 }
 
+export function stepCommentKindLabel(kind: ProcurementStepCommentKind, locale: string) {
+  const ru: Record<ProcurementStepCommentKind, string> = {
+    Note: "Комментарий",
+    StepCompletion: "Завершение этапа",
+    Branch: "Отклонение",
+    Assignment: "Назначение",
+    Acceptance: "Принятие в работу",
+  };
+  const en: Record<ProcurementStepCommentKind, string> = {
+    Note: "Comment",
+    StepCompletion: "Step completion",
+    Branch: "Deviation",
+    Assignment: "Assignment",
+    Acceptance: "Acceptance",
+  };
+  return locale.startsWith("en") ? en[kind] : ru[kind];
+}
 

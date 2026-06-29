@@ -30,6 +30,8 @@ public record MarketingRecordDto(
     string BudgetCurrency,
     string? LegalBasis,
     DateTime? RfqPreparedAt,
+    string? RfqDocumentStorageKey,
+    string? RfqDocumentFileName,
     bool RfqPublishedAtgSite,
     bool RfqPublishedTenderweek,
     bool RfqSentToVendor,
@@ -43,6 +45,7 @@ public record MarketingRecordDto(
     string? Notes,
     IReadOnlyList<MarketingOfferDto> Offers,
     IReadOnlyList<RfqDispatchDto> RfqDispatches,
+    IReadOnlyList<MarketingRfqChannelRequestDto> RfqChannelRequests,
     IReadOnlyList<MarketingProcurementPlanDto> Plans,
     IReadOnlyList<MarketingPortalApprovalDto> PortalApprovals,
     MarketingOffersSummaryDto? OffersSummary,
@@ -101,6 +104,19 @@ public record RfqDispatchDto(
     DateTime? FollowupSentAt,
     bool FollowupPhoneCalled,
     string? Notes);
+
+public record MarketingRfqChannelRequestDto(
+    Guid Id,
+    MarketingRfqChannelType Channel,
+    MarketingRfqChannelStatus Status,
+    string? ExternalNumber,
+    Guid? HelpDeskTicketId,
+    Guid? WorkTaskId,
+    string? AssignedUserName,
+    DateTime CreatedAt,
+    DateTime? CompletedAt);
+
+public record UploadRfqDocumentRequest(string StorageKey, string FileName);
 
 public record MarketingProcurementPlanDto(
     Guid Id,

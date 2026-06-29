@@ -29,6 +29,7 @@ import {
   slugToType,
 } from "@/lib/dcs";
 import { phaseLabel, type ProcurementRequestPhase } from "@/lib/procurementRequest";
+import { priorityDotClass } from "@/lib/procurementPriority";
 import { DocumentStatusBadge } from "@/components/dcs/DocumentBadges";
 import { DcsPageHeader } from "@/components/dcs/DcsPageHeader";
 import { DcsEmptyState, DcsListSkeleton } from "@/components/dcs/DcsEmptyState";
@@ -305,7 +306,12 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                             href={`/${locale}/automation/documents/${doc.id}`}
                             className="inline-flex items-center gap-2 font-mono text-[13px] font-bold text-sky-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 transition-colors"
                           >
-                            <span className="w-2 h-2 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 shadow-sm shadow-sky-500/40 shrink-0" />
+                            <span
+                              className={cn(
+                                "w-2.5 h-2.5 rounded-full shadow-sm shrink-0",
+                                priorityDotClass(doc.priority ?? "Medium")
+                              )}
+                            />
                             {doc.number}
                           </Link>
                         </td>

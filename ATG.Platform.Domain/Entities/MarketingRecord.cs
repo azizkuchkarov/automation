@@ -31,6 +31,8 @@ public class MarketingRecord
     public string? LegalBasis { get; set; }
 
     public DateTime? RfqPreparedAt { get; set; }
+    public string? RfqDocumentStorageKey { get; set; }
+    public string? RfqDocumentFileName { get; set; }
     public bool RfqPublishedAtgSite { get; set; }
     public bool RfqPublishedTenderweek { get; set; }
     public bool RfqSentToVendor { get; set; }
@@ -61,6 +63,7 @@ public class MarketingRecord
     public User? AssignedByManager { get; set; }
     public ICollection<MarketingOffer> Offers { get; set; } = [];
     public ICollection<RfqDispatch> RfqDispatches { get; set; } = [];
+    public ICollection<MarketingRfqChannelRequest> RfqChannelRequests { get; set; } = [];
     public ICollection<MarketingProcurementPlan> Plans { get; set; } = [];
     public ICollection<MarketingPortalApproval> PortalApprovals { get; set; } = [];
 }

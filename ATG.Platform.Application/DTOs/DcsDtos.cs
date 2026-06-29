@@ -67,7 +67,9 @@ public record DocumentListItemDto(
     ProcurementRequestFlow? ProcurementFlow = null,
     ProcurementRequestPhase? ProcurementPhase = null,
     int? ProcurementCurrentStep = null,
-    string? InitiatorName = null);
+    string? InitiatorName = null,
+    TaskPriority? Priority = null,
+    ProcurementRegion? Region = null);
 
 public record DocumentActivityDto(
     Guid Id,

@@ -443,7 +443,9 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
         procurement?.Phase == ProcurementRequestPhase.InProgress ? procurement.CurrentStep
             : procurement?.Phase == ProcurementRequestPhase.Marketing ? procurement.MarketingCurrentStep
             : null,
-        procurement?.Initiator?.FullName);
+        procurement?.Initiator?.FullName,
+        procurement?.Priority,
+        procurement?.Region);
 
     private static DocumentDto MapDocument(Document d) => new(
         d.Id, d.Number, d.Title, d.Description, d.Type, d.Status,

@@ -4,15 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Activity,
-  ArrowRight,
-  CheckCircle2,
-  Circle,
   Clock,
   FilePlus,
   GitBranch,
   Loader2,
   Map,
   Megaphone,
+  FileSignature,
   ShieldCheck,
   User,
 } from "lucide-react";
@@ -23,29 +21,27 @@ import {
   ProcurementApproverRole,
   ProcurementRequest,
   ProcurementRequestUser,
-  ProcurementTopologyNode,
   MarketingBranchType,
-  approverRoleLabel,
   attachmentKindLabel,
-  branchForMarketingStep,
-  marketingStepBranchHint,
-  marketingStepHint,
-  marketingStepTitle,
+  getNextPendingApprover,
   marketingSubPhaseLabel,
+  contractsSubPhaseLabel,
   phaseLabel,
-  stepTitle,
-  timelineActionLabel,
-  topologyDept,
   topologyLabel,
-  topologyStatusLabel,
 } from "@/lib/procurementRequest";
 import { deptLabel } from "@/lib/dcs";
 import { DocumentStatusBadge } from "@/components/dcs/DocumentBadges";
 import { dcsTheme } from "@/components/dcs/dcsTheme";
 import { MarketingRecordPanel } from "@/components/dcs/MarketingRecordPanel";
 import { MarketingDetailTabs } from "@/components/dcs/MarketingDetailTabs";
+import { ProcurementPhaseOverview } from "@/components/dcs/ProcurementPhaseOverview";
+import { MarketingWorkflowPanel } from "@/components/dcs/MarketingWorkflowPanel";
+import { ContractsWorkflowPanel } from "@/components/dcs/ContractsWorkflowPanel";
+import { TechnicalAffairsWorkflowPanel } from "@/components/dcs/TechnicalAffairsWorkflowPanel";
+import { ProcurementApproversHierarchy } from "@/components/dcs/ProcurementApproversHierarchy";
+import { ProcurementTopologyView } from "@/components/dcs/ProcurementTopologyView";
+import { ProcurementMonitoringView } from "@/components/dcs/ProcurementMonitoringView";
 import { Button } from "@/components/ui/Button";
-import { DocumentFileUpload } from "@/components/dcs/DocumentFileUpload";
 import { fileDownloadUrl } from "@/lib/files";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +49,7 @@ interface Props {
   documentId: string;
 }
 
-type Tab = "overview" | "registration" | "approvers" | "marketing" | "topology" | "timeline";
+type Tab = "overview" | "registration" | "approvers" | "marketing" | "contracts" | "topology" | "timeline";
 type ApproverRow = { userId: string; role: ProcurementApproverRole };
 type AttachmentRow = { kind: ProcurementAttachmentKind; fileName: string; storageKey?: string };
 
@@ -77,15 +73,42 @@ export function ProcurementRequestView({ documentId }: Props) {
     { kind: "MaterialRequisition", fileName: "" },
   ]);
   const [marketingWorkers, setMarketingWorkers] = useState<ProcurementRequestUser[]>([]);
+  const [contractsWorkers, setContractsWorkers] = useState<ProcurementRequestUser[]>([]);
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
+  const [selectedEngineer, setSelectedEngineer] = useState("");
   const [marketingComment, setMarketingComment] = useState("");
+  const [contractsComment, setContractsComment] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
     setActionError("");
     api
       .get(`/dcs/procurement-requests/${documentId}`)
-      .then((r) => setReq(r.data))
+      .then(async (r) => {
+        setReq(r.data);
+        if (r.data.phase === "Marketing") {
+          try {
+            const workers = await api.get("/dcs/procurement-requests/marketing/workers");
+            setMarketingWorkers(Array.isArray(workers.data) ? workers.data : []);
+          } catch (err) {
+            setMarketingWorkers([]);
+            setActionError(getApiErrorMessage(err, t("marketingWorkersError")));
+          }
+          setContractsWorkers([]);
+        } else if (r.data.phase === "Contracts") {
+          setMarketingWorkers([]);
+          try {
+            const workers = await api.get("/dcs/procurement-requests/contracts/workers");
+            setContractsWorkers(Array.isArray(workers.data) ? workers.data : []);
+          } catch (err) {
+            setContractsWorkers([]);
+            setActionError(getApiErrorMessage(err, t("contractsWorkersError")));
+          }
+        } else {
+          setMarketingWorkers([]);
+          setContractsWorkers([]);
+        }
+      })
       .catch((err) => setActionError(getApiErrorMessage(err, t("error"))))
       .finally(() => setLoading(false));
   }, [documentId, t]);
@@ -94,15 +117,6 @@ export function ProcurementRequestView({ documentId }: Props) {
     load();
     api.get("/tasks/assignees").then((r) => setAssignable(r.data));
   }, [load]);
-
-  useEffect(() => {
-    if (req?.phase === "Marketing") {
-      api
-        .get("/dcs/procurement-requests/marketing/workers")
-        .then((r) => setMarketingWorkers(r.data))
-        .catch(() => setMarketingWorkers([]));
-    }
-  }, [req?.phase]);
 
   const activeNode = useMemo(
     () => req?.topology.find((n) => n.status === "Active"),
@@ -130,20 +144,92 @@ export function ProcurementRequestView({ documentId }: Props) {
     }
   };
 
-  const completeStep = (step: number) => runAction(() => api.post(`/dcs/procurement-requests/${documentId}/steps/${step}/complete`));
+  const completeStep = (step: number, comment: string) =>
+    runAction(() =>
+      api
+        .post(`/dcs/procurement-requests/${documentId}/steps/${step}/complete`, { comment })
+    );
   const submitStep9 = () => runAction(() => api.post(`/dcs/procurement-requests/${documentId}/step9/submit`, {
     approvers: step9Approvers.filter((a) => a.userId),
     attachments: step9Attachments.filter((a) => a.fileName.trim() && a.storageKey),
   }));
-  const approve = () => runAction(() => api.post(`/dcs/procurement-requests/${documentId}/approve`, {}));
-  const reject = () => runAction(() => api.post(`/dcs/procurement-requests/${documentId}/reject`, {}));
-  const forwardContracts = () => runAction(() => api.post(`/dcs/procurement-requests/${documentId}/forward-contracts`));
-  const completeMarketingStep = (step: number) => runAction(() =>
+  const approve = (comment: string) =>
+    runAction(() => api.post(`/dcs/procurement-requests/${documentId}/approve`, { comment: comment || null }));
+  const reject = (comment: string) =>
+    runAction(() => api.post(`/dcs/procurement-requests/${documentId}/reject`, { comment }));
+
+  const completeMarketingStep = (step: number, comment?: string) => runAction(() =>
     api.post(`/dcs/procurement-requests/${documentId}/marketing/steps/${step}/complete`, {
-      specialistId: step === 1 ? (selectedSpecialist || req?.marketingSpecialistId || null) : null,
-      comment: marketingComment || null,
-    })
+      specialistId: null,
+      comment: (comment ?? marketingComment).trim() || null,
+    }).then(() => setMarketingComment(""))
   );
+  const assignMarketing = () => {
+    const specialistId = (selectedSpecialist || req?.marketingSpecialistId || "").trim();
+    const comment = marketingComment.trim();
+    if (!specialistId) {
+      setActionError(t("selectSpecialistRequired"));
+      return Promise.resolve();
+    }
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/marketing/assign`, {
+        specialistId,
+        comment,
+      }).then(() => {
+        setMarketingComment("");
+        setSelectedSpecialist("");
+      })
+    );
+  };
+  const acceptMarketing = () => {
+    const comment = marketingComment.trim();
+    if (!comment) {
+      setActionError(t("acceptCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/marketing/accept`, { comment }).then(() => {
+        setMarketingComment("");
+      })
+    );
+  };
+  const assignContracts = () => {
+    const specialistId = (selectedEngineer || req?.contractsSpecialistId || "").trim();
+    const comment = contractsComment.trim();
+    if (!specialistId) {
+      setActionError(t("selectEngineerRequired"));
+      return Promise.resolve();
+    }
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/assign`, {
+        specialistId,
+        comment,
+      }).then(() => {
+        setContractsComment("");
+        setSelectedEngineer("");
+      })
+    );
+  };
+  const acceptContracts = () => {
+    const comment = contractsComment.trim();
+    if (!comment) {
+      setActionError(t("acceptCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/accept`, { comment }).then(() => {
+        setContractsComment("");
+      })
+    );
+  };
   const recordMarketingBranch = (branch: MarketingBranchType, resolve: boolean) => runAction(() =>
     api.post(`/dcs/procurement-requests/${documentId}/marketing/branch`, {
       branch,
@@ -151,6 +237,30 @@ export function ProcurementRequestView({ documentId }: Props) {
       comment: marketingComment || null,
     })
   );
+
+  const submitPlanApproval = (approvers: { userId: string; role: string }[]) =>
+    runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/marketing/plan/submit`, { approvers })
+    );
+  const approvePlan = (comment: string) =>
+    runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/marketing/plan/approve`, { comment: comment || null })
+    );
+  const rejectPlan = (comment: string) =>
+    runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/marketing/plan/reject`, { comment })
+    );
+  const confirmRegistration = () => {
+    const comment = marketingComment.trim();
+    if (!comment) {
+      setActionError(t("step9.confirmCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/marketing/register`, { comment })
+        .then(() => setMarketingComment(""))
+    );
+  };
 
   if (loading || !req) {
     return (
@@ -168,18 +278,20 @@ export function ProcurementRequestView({ documentId }: Props) {
   }
 
   const isTas = req.flow === "TechnicalAffairs";
-  const myPendingApproval = user
-    ? req.approvers.find((a) => a.userId === user.id && a.status === "Pending")
-    : undefined;
-  const canForward = req.marketingPermissions?.canForwardToContracts ?? false;
+  const nextPendingApprover = getNextPendingApprover(req.approvers);
+  const myPendingApproval =
+    user && nextPendingApprover?.userId === user.id ? nextPendingApprover : undefined;
   const marketingPerms = req.marketingPermissions;
+  const contractsPerms = req.contractsPermissions;
   const showMarketingTab = req.phase === "Marketing";
+  const showContractsTab = req.phase === "Contracts";
 
   const tabs: { id: Tab; label: string; icon: typeof Activity }[] = [
     { id: "overview", label: t("tabs.overview"), icon: Activity },
     { id: "registration", label: t("tabs.registration"), icon: ShieldCheck },
     { id: "approvers", label: t("tabs.approvers"), icon: User },
     ...(showMarketingTab ? [{ id: "marketing" as Tab, label: t("tabs.marketing"), icon: Megaphone }] : []),
+    ...(showContractsTab ? [{ id: "contracts" as Tab, label: t("tabs.contracts"), icon: FileSignature }] : []),
     { id: "topology", label: t("tabs.topology"), icon: Map },
     { id: "timeline", label: t("tabs.timeline"), icon: GitBranch },
   ];
@@ -269,16 +381,29 @@ export function ProcurementRequestView({ documentId }: Props) {
               t={t}
               isTas={isTas}
               acting={acting}
-              myPendingApproval={myPendingApproval}
-              canForward={!!canForward}
               marketingPerms={marketingPerms}
+              contractsPerms={contractsPerms}
               marketingWorkers={marketingWorkers}
+              contractsWorkers={contractsWorkers}
               selectedSpecialist={selectedSpecialist}
               setSelectedSpecialist={setSelectedSpecialist}
+              selectedEngineer={selectedEngineer}
+              setSelectedEngineer={setSelectedEngineer}
               marketingComment={marketingComment}
               setMarketingComment={setMarketingComment}
+              contractsComment={contractsComment}
+              setContractsComment={setContractsComment}
               onCompleteMarketingStep={completeMarketingStep}
               onRecordMarketingBranch={recordMarketingBranch}
+              onSubmitPlanApproval={submitPlanApproval}
+              onApprovePlan={approvePlan}
+              onRejectPlan={rejectPlan}
+              onConfirmRegistration={confirmRegistration}
+              onAssign={assignMarketing}
+              onAccept={acceptMarketing}
+              onAssignContracts={assignContracts}
+              onAcceptContracts={acceptContracts}
+              documentId={documentId}
               step9Approvers={step9Approvers}
               setStep9Approvers={setStep9Approvers}
               step9Attachments={step9Attachments}
@@ -286,13 +411,20 @@ export function ProcurementRequestView({ documentId }: Props) {
               assignable={assignable}
               onCompleteStep={completeStep}
               onSubmitStep9={submitStep9}
-              onApprove={approve}
-              onReject={reject}
-              onForward={forwardContracts}
             />
           )}
           {tab === "registration" && <RegistrationTab req={req} locale={locale} t={t} />}
-          {tab === "approvers" && <ApproversTab req={req} locale={locale} t={t} acting={acting} myPendingApproval={myPendingApproval} onApprove={approve} onReject={reject} />}
+          {tab === "approvers" && (
+            <ProcurementApproversHierarchy
+              req={req}
+              locale={locale}
+              t={t}
+              acting={acting}
+              myPendingApproval={myPendingApproval}
+              onApprove={approve}
+              onReject={reject}
+            />
+          )}
           {tab === "marketing" && (
             <MarketingTab
               req={req}
@@ -305,13 +437,34 @@ export function ProcurementRequestView({ documentId }: Props) {
               setSelectedSpecialist={setSelectedSpecialist}
               marketingComment={marketingComment}
               setMarketingComment={setMarketingComment}
-              onForward={forwardContracts}
               onCompleteMarketingStep={completeMarketingStep}
               onRecordMarketingBranch={recordMarketingBranch}
+              onSubmitPlanApproval={submitPlanApproval}
+              onApprovePlan={approvePlan}
+              onRejectPlan={rejectPlan}
+              onConfirmRegistration={confirmRegistration}
+              onAssign={assignMarketing}
+              onAccept={acceptMarketing}
             />
           )}
-          {tab === "topology" && <TopologyTab req={req} locale={locale} t={t} />}
-          {tab === "timeline" && <TimelineTab req={req} locale={locale} t={t} />}
+          {tab === "contracts" && (
+            <ContractsTab
+              req={req}
+              locale={locale}
+              t={t}
+              acting={acting}
+              contractsPerms={contractsPerms}
+              contractsWorkers={contractsWorkers}
+              selectedEngineer={selectedEngineer}
+              setSelectedEngineer={setSelectedEngineer}
+              contractsComment={contractsComment}
+              setContractsComment={setContractsComment}
+              onAssign={assignContracts}
+              onAccept={acceptContracts}
+            />
+          )}
+          {tab === "topology" && <ProcurementTopologyView nodes={req.topology} locale={locale} hint={t("topologyHint")} />}
+          {tab === "timeline" && <ProcurementMonitoringView req={req} locale={locale} t={t} />}
         </div>
       </div>
     </div>
@@ -334,82 +487,79 @@ function PhasePill({ phase, locale }: { phase: ProcurementRequest["phase"]; loca
 }
 
 function OverviewTab({
-  req, locale, t, isTas, acting, myPendingApproval, canForward,
-  marketingPerms, marketingWorkers, selectedSpecialist, setSelectedSpecialist,
-  marketingComment, setMarketingComment,
+  req, locale, t, isTas, acting,
+  marketingPerms, contractsPerms, marketingWorkers, contractsWorkers,
+  selectedSpecialist, setSelectedSpecialist, selectedEngineer, setSelectedEngineer,
+  marketingComment, setMarketingComment, contractsComment, setContractsComment,
   step9Approvers, setStep9Approvers, step9Attachments, setStep9Attachments, assignable,
-  onCompleteStep, onSubmitStep9, onApprove, onReject, onForward,
+  documentId,
+  onCompleteStep, onSubmitStep9,
   onCompleteMarketingStep, onRecordMarketingBranch,
+  onSubmitPlanApproval, onApprovePlan, onRejectPlan, onConfirmRegistration,
+  onAssign, onAccept, onAssignContracts, onAcceptContracts,
 }: {
   req: ProcurementRequest;
   locale: string;
   t: ReturnType<typeof useTranslations>;
   isTas: boolean;
   acting: boolean;
-  myPendingApproval?: ProcurementRequest["approvers"][0];
-  canForward: boolean;
   marketingPerms?: ProcurementRequest["marketingPermissions"];
+  contractsPerms?: ProcurementRequest["contractsPermissions"];
   marketingWorkers: ProcurementRequestUser[];
+  contractsWorkers: ProcurementRequestUser[];
   selectedSpecialist: string;
   setSelectedSpecialist: (v: string) => void;
+  selectedEngineer: string;
+  setSelectedEngineer: (v: string) => void;
   marketingComment: string;
   setMarketingComment: (v: string) => void;
+  contractsComment: string;
+  setContractsComment: (v: string) => void;
   step9Approvers: ApproverRow[];
   setStep9Approvers: (v: ApproverRow[]) => void;
   step9Attachments: AttachmentRow[];
   setStep9Attachments: (v: AttachmentRow[]) => void;
   assignable: { id: string; fullName: string }[];
-  onCompleteStep: (s: number) => void;
+  documentId: string;
+  onCompleteStep: (s: number, comment: string) => void;
   onSubmitStep9: () => void;
-  onApprove: () => void;
-  onReject: () => void;
-  onForward: () => void;
-  onCompleteMarketingStep: (step: number) => void;
+  onCompleteMarketingStep: (step: number, comment?: string) => void;
   onRecordMarketingBranch: (branch: MarketingBranchType, resolve: boolean) => void;
+  onSubmitPlanApproval: (approvers: { userId: string; role: string }[]) => void;
+  onApprovePlan: (comment: string) => void;
+  onRejectPlan: (comment: string) => void;
+  onConfirmRegistration: () => void;
+  onAssign: () => void;
+  onAccept: () => void;
+  onAssignContracts: () => void;
+  onAcceptContracts: () => void;
 }) {
   return (
-    <div className="grid lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-6">
-        <MiniTopology nodes={req.topology} locale={locale} />
+    <div className="space-y-6">
+      <ProcurementPhaseOverview req={req} locale={locale} isTas={isTas} />
 
+      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-6">
         {isTas && req.phase === "InProgress" && (
-          <section className="rounded-2xl border border-border/70 bg-surface shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-border/50 bg-gradient-to-r from-sky-500/5 to-transparent">
-              <h2 className="text-sm font-bold">{t("workflowSteps")}</h2>
-            </div>
-            <ol className="p-5 space-y-3 max-h-[480px] overflow-y-auto">
-              {req.steps.map((step) => {
-                const done = step.number < req.currentStep;
-                const active = step.number === req.currentStep;
-                const isStep9 = step.number === 9;
-                return (
-                  <li key={step.number} className={cn("rounded-xl border p-4", active && "border-sky-500/40 bg-sky-500/5", done && "border-emerald-500/25 bg-emerald-500/5 opacity-80")}>
-                    <div className="flex gap-3">
-                      {done ? <CheckCircle2 size={18} className="text-emerald-600 shrink-0" /> : <Circle size={18} className={cn("shrink-0", active ? "text-sky-500" : "text-foreground/25")} />}
-                      <div className="flex-1">
-                        <p className="text-[10px] font-bold text-foreground/40">{t("step")} {step.number}</p>
-                        <p className="text-sm">{stepTitle(step, locale)}</p>
-                        {active && !isStep9 && step.number <= 8 && (
-                          <Button size="sm" className="mt-3" disabled={acting} onClick={() => onCompleteStep(step.number)}>{t("markComplete")}</Button>
-                        )}
-                        {active && isStep9 && (
-                          <Step9Form documentId={req.id} approvers={step9Approvers} setApprovers={setStep9Approvers} attachments={step9Attachments} setAttachments={setStep9Attachments} assignable={assignable} acting={acting} onSubmit={onSubmitStep9} t={t} />
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
+          <TechnicalAffairsWorkflowPanel
+            req={req}
+            locale={locale}
+            t={t}
+            acting={acting}
+            documentId={documentId}
+            step9Approvers={step9Approvers}
+            setStep9Approvers={setStep9Approvers}
+            step9Attachments={step9Attachments}
+            setStep9Attachments={setStep9Attachments}
+            assignable={assignable}
+            onCompleteStep={onCompleteStep}
+            onSubmitStep9={onSubmitStep9}
+          />
         )}
 
-        {req.phase === "AwaitingApproval" && myPendingApproval && (
+        {req.phase === "AwaitingApproval" && (
           <ActionCard title={t("approvalPending")} variant="amber">
-            <div className="flex gap-2">
-              <Button onClick={onApprove} disabled={acting}>{t("approve")}</Button>
-              <Button variant="secondary" onClick={onReject} disabled={acting}>{t("reject")}</Button>
-            </div>
+            <p className="text-sm text-foreground/60">{t("approversTabHint")}</p>
           </ActionCard>
         )}
 
@@ -419,22 +569,38 @@ function OverviewTab({
             locale={locale}
             t={t}
             acting={acting}
-            compact
             marketingPerms={marketingPerms}
             marketingWorkers={marketingWorkers}
             selectedSpecialist={selectedSpecialist}
             setSelectedSpecialist={setSelectedSpecialist}
-            marketingComment={marketingComment}
-            setMarketingComment={setMarketingComment}
+            stepComment={marketingComment}
+            setStepComment={setMarketingComment}
+            onAssign={onAssign}
+            onAccept={onAccept}
             onCompleteMarketingStep={onCompleteMarketingStep}
             onRecordMarketingBranch={onRecordMarketingBranch}
+            onSubmitPlanApproval={onSubmitPlanApproval}
+            onApprovePlan={onApprovePlan}
+            onRejectPlan={onRejectPlan}
+            onConfirmRegistration={onConfirmRegistration}
           />
         )}
 
-        {req.phase === "Marketing" && canForward && (
-          <ActionCard title={t("forwardContracts")} subtitle={t("forwardContractsHint")} variant="violet">
-            <Button onClick={onForward} disabled={acting}>{t("forwardContracts")}</Button>
-          </ActionCard>
+        {req.phase === "Contracts" && req.contractsSubPhase !== "Completed" && (
+          <ContractsWorkflowPanel
+            req={req}
+            locale={locale}
+            t={t}
+            acting={acting}
+            contractsPerms={contractsPerms}
+            contractsWorkers={contractsWorkers}
+            selectedEngineer={selectedEngineer}
+            setSelectedEngineer={setSelectedEngineer}
+            stepComment={contractsComment}
+            setStepComment={setContractsComment}
+            onAssign={onAssignContracts}
+            onAccept={onAcceptContracts}
+          />
         )}
       </div>
 
@@ -464,6 +630,10 @@ function OverviewTab({
           )}
           {req.marketingSpecialistName && <InfoRow label={t("marketingSpecialist")} value={req.marketingSpecialistName} />}
           {req.contractsTaskNumber && <InfoRow label={t("contractsTask")} value={req.contractsTaskNumber} />}
+          {req.phase === "Contracts" && (
+            <InfoRow label={t("contractsSubPhase")} value={contractsSubPhaseLabel(req.contractsSubPhase, locale)} />
+          )}
+          {req.contractsSpecialistName && <InfoRow label={t("contractsEngineer")} value={req.contractsSpecialistName} />}
         </InfoCard>
         {req.attachments.length > 0 && (
           <InfoCard title={t("attachments")}>
@@ -485,13 +655,16 @@ function OverviewTab({
         )}
       </div>
     </div>
+    </div>
   );
 }
 
 function MarketingTab({
   req, locale, t, acting, marketingPerms, marketingWorkers,
   selectedSpecialist, setSelectedSpecialist, marketingComment, setMarketingComment,
-  onCompleteMarketingStep, onRecordMarketingBranch, onForward,
+  onCompleteMarketingStep, onRecordMarketingBranch,
+  onSubmitPlanApproval, onApprovePlan, onRejectPlan, onConfirmRegistration,
+  onAssign, onAccept,
 }: {
   req: ProcurementRequest;
   locale: string;
@@ -503,31 +676,18 @@ function MarketingTab({
   setSelectedSpecialist: (v: string) => void;
   marketingComment: string;
   setMarketingComment: (v: string) => void;
-  onCompleteMarketingStep: (step: number) => void;
+  onCompleteMarketingStep: (step: number, comment?: string) => void;
   onRecordMarketingBranch: (branch: MarketingBranchType, resolve: boolean) => void;
-  onForward: () => void;
+  onSubmitPlanApproval: (approvers: { userId: string; role: string }[]) => void;
+  onApprovePlan: (comment: string) => void;
+  onRejectPlan: (comment: string) => void;
+  onConfirmRegistration: () => void;
+  onAssign: () => void;
+  onAccept: () => void;
 }) {
   return (
-    <div className="max-w-3xl space-y-6">
-      <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 p-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/40 mb-2">{t("marketingDept")}</p>
-        <h2 className="text-lg font-bold">{t("atMarketing")}</h2>
-        <p className="text-sm text-foreground/55 mt-2 leading-relaxed">{t("atMarketingHint")}</p>
-        <div className="mt-4 grid sm:grid-cols-3 gap-3 text-sm">
-          <div className="rounded-xl border border-border/60 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">{t("marketingStep")}</p>
-            <p className="font-semibold mt-1">{req.marketingCurrentStep} / {req.marketingSteps.length}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">{t("marketingSubPhase")}</p>
-            <p className="font-semibold mt-1">{marketingSubPhaseLabel(req.marketingSubPhase, locale)}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">{t("marketingSpecialist")}</p>
-            <p className="font-semibold mt-1">{req.marketingSpecialistName ?? "—"}</p>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-6 max-w-4xl">
+      <ProcurementPhaseOverview req={req} locale={locale} isTas={req.flow === "TechnicalAffairs"} />
       <MarketingRecordPanel
         documentId={req.id}
         canManage={!!marketingPerms?.canAssign || !!marketingPerms?.canAccept}
@@ -545,154 +705,64 @@ function MarketingTab({
         marketingWorkers={marketingWorkers}
         selectedSpecialist={selectedSpecialist}
         setSelectedSpecialist={setSelectedSpecialist}
-        marketingComment={marketingComment}
-        setMarketingComment={setMarketingComment}
+        stepComment={marketingComment}
+        setStepComment={setMarketingComment}
+        onAssign={onAssign}
+        onAccept={onAccept}
         onCompleteMarketingStep={onCompleteMarketingStep}
         onRecordMarketingBranch={onRecordMarketingBranch}
+        onSubmitPlanApproval={onSubmitPlanApproval}
+        onApprovePlan={onApprovePlan}
+        onRejectPlan={onRejectPlan}
+        onConfirmRegistration={onConfirmRegistration}
       />
-      {marketingPerms?.canForwardToContracts && (
-        <ActionCard title={t("forwardContracts")} subtitle={t("forwardContractsHint")} variant="violet">
-          <Button onClick={onForward} disabled={acting}>{t("forwardContracts")}</Button>
-        </ActionCard>
-      )}
     </div>
   );
 }
 
-function MarketingWorkflowPanel({
-  req, locale, t, acting, compact, marketingPerms, marketingWorkers,
-  selectedSpecialist, setSelectedSpecialist, marketingComment, setMarketingComment,
-  onCompleteMarketingStep, onRecordMarketingBranch,
+function ContractsTab({
+  req, locale, t, acting, contractsPerms, contractsWorkers,
+  selectedEngineer, setSelectedEngineer, contractsComment, setContractsComment,
+  onAssign, onAccept,
 }: {
   req: ProcurementRequest;
   locale: string;
   t: ReturnType<typeof useTranslations>;
   acting: boolean;
-  compact?: boolean;
-  marketingPerms?: ProcurementRequest["marketingPermissions"];
-  marketingWorkers: ProcurementRequestUser[];
-  selectedSpecialist: string;
-  setSelectedSpecialist: (v: string) => void;
-  marketingComment: string;
-  setMarketingComment: (v: string) => void;
-  onCompleteMarketingStep: (step: number) => void;
-  onRecordMarketingBranch: (branch: MarketingBranchType, resolve: boolean) => void;
+  contractsPerms?: ProcurementRequest["contractsPermissions"];
+  contractsWorkers: ProcurementRequestUser[];
+  selectedEngineer: string;
+  setSelectedEngineer: (v: string) => void;
+  contractsComment: string;
+  setContractsComment: (v: string) => void;
+  onAssign: () => void;
+  onAccept: () => void;
 }) {
-  const inputClass = "w-full rounded-lg border border-border/80 bg-background px-3 py-2 text-sm";
-  const current = req.marketingCurrentStep;
-  const steps = compact
-    ? req.marketingSteps.filter((s) => s.number === current)
-    : req.marketingSteps;
-
   return (
-    <section className="rounded-2xl border border-border/70 bg-surface shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-border/50 bg-gradient-to-r from-violet-500/5 to-transparent">
-        <h2 className="text-sm font-bold">{t("marketingWorkflow")}</h2>
-        {!compact && (
-          <p className="text-xs text-foreground/50 mt-1">{t("marketingWorkflowHint")}</p>
-        )}
-      </div>
-      <ol className="p-5 space-y-3 max-h-[720px] overflow-y-auto">
-        {steps.map((step) => {
-          const done = step.number < current || req.marketingSubPhase === "Completed";
-          const active = step.number === current && req.marketingSubPhase !== "Completed";
-          const branch = branchForMarketingStep(step.number);
-          const branchActive = branch && req.marketingActiveBranch === branch;
-          return (
-            <li
-              key={step.number}
-              className={cn(
-                "rounded-xl border p-4",
-                active && "border-violet-500/40 bg-violet-500/5",
-                done && "border-emerald-500/25 bg-emerald-500/5 opacity-90"
-              )}
-            >
-              <div className="flex gap-3">
-                {done ? (
-                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
-                ) : (
-                  <Circle size={18} className={cn("shrink-0 mt-0.5", active ? "text-violet-500" : "text-foreground/25")} />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold text-foreground/40">{t("step")} {step.number}</p>
-                  <p className="text-sm font-semibold">{marketingStepTitle(step, locale)}</p>
-                  <p className="text-xs text-foreground/55 mt-1 leading-relaxed">{marketingStepHint(step, locale)}</p>
-                  {step.hasBranch && marketingStepBranchHint(step, locale) && (
-                    <p className="text-xs text-amber-700/80 dark:text-amber-400/90 mt-2 leading-relaxed border-l-2 border-amber-500/40 pl-2">
-                      {marketingStepBranchHint(step, locale)}
-                    </p>
-                  )}
-                  {branchActive && (
-                    <p className="text-xs font-medium text-amber-600 mt-2">{t("branchActive")}</p>
-                  )}
-                  {active && step.number === 1 && (
-                    <div className="mt-3 space-y-2">
-                      <select
-                        className={inputClass}
-                        value={selectedSpecialist || req.marketingSpecialistId || ""}
-                        onChange={(e) => setSelectedSpecialist(e.target.value)}
-                      >
-                        <option value="">{t("selectUser")}</option>
-                        {marketingWorkers.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.fullName} — {locale.startsWith("en") ? u.departmentNameEn : u.departmentName}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {active && (
-                    <div className="mt-3 space-y-2">
-                      <textarea
-                        className={cn(inputClass, "min-h-[60px]")}
-                        placeholder={t("marketingCommentPlaceholder")}
-                        value={marketingComment}
-                        onChange={(e) => setMarketingComment(e.target.value)}
-                      />
-                      {step.hasBranch && branch && marketingPerms?.canRecordBranch && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={acting}
-                          onClick={() => onRecordMarketingBranch(branch, false)}
-                        >
-                          {t(`branchRecord.${branch}`)}
-                        </Button>
-                      )}
-                      {step.hasBranch && branch && marketingPerms?.canResolveBranch && branchActive && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={acting}
-                          onClick={() => onRecordMarketingBranch(branch, true)}
-                        >
-                          {t(`branchResolve.${branch}`)}
-                        </Button>
-                      )}
-                      {marketingPerms?.canCompleteCurrentStep && !branchActive && (
-                        <Button
-                          size="sm"
-                          disabled={acting || (step.number === 1 && !(selectedSpecialist || req.marketingSpecialistId))}
-                          onClick={() => onCompleteMarketingStep(step.number)}
-                        >
-                          {t("markComplete")}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+    <div className="space-y-6 max-w-4xl">
+      <ProcurementPhaseOverview req={req} locale={locale} isTas={req.flow === "TechnicalAffairs"} />
+      <ContractsWorkflowPanel
+        req={req}
+        locale={locale}
+        t={t}
+        acting={acting}
+        contractsPerms={contractsPerms}
+        contractsWorkers={contractsWorkers}
+        selectedEngineer={selectedEngineer}
+        setSelectedEngineer={setSelectedEngineer}
+        stepComment={contractsComment}
+        setStepComment={setContractsComment}
+        onAssign={onAssign}
+        onAccept={onAccept}
+      />
+    </div>
   );
 }
 
 function RegistrationTab({ req, locale, t }: { req: ProcurementRequest; locale: string; t: ReturnType<typeof useTranslations> }) {
+  const marketingRegistered = !!req.marketingPlanRegisteredAt;
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl space-y-6">
       <div className="rounded-2xl border border-border/70 bg-surface shadow-sm overflow-hidden">
         <div className="px-6 py-8 text-center border-b border-border/50 bg-gradient-to-b from-emerald-500/5 to-transparent">
           <div className={cn("w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4", req.isRegistered ? "bg-emerald-500/15" : "bg-foreground/[0.06]")}>
@@ -718,159 +788,30 @@ function RegistrationTab({ req, locale, t }: { req: ProcurementRequest; locale: 
           </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-function ApproversTab({ req, locale, t, acting, myPendingApproval, onApprove, onReject }: {
-  req: ProcurementRequest; locale: string; t: ReturnType<typeof useTranslations>;
-  acting: boolean; myPendingApproval?: ProcurementRequest["approvers"][0];
-  onApprove: () => void; onReject: () => void;
-}) {
-  if (req.approvers.length === 0) {
-    return <EmptyPanel message={t("noApprovers")} />;
-  }
-  return (
-    <div className="space-y-4 max-w-3xl">
-      {req.approvers.map((a, i) => (
-        <div key={a.id} className={cn("rounded-2xl border p-5 flex gap-4 items-start", a.status === "Approved" && "border-emerald-500/30 bg-emerald-500/5", a.status === "Pending" && "border-amber-500/30 bg-amber-500/5", a.status === "Rejected" && "border-red-500/30 bg-red-500/5")}>
-          <div className="w-10 h-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center font-bold text-sm shrink-0">{i + 1}</div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold">{a.userName}</p>
-            <p className="text-sm text-foreground/50">{approverRoleLabel(a.role, locale)}</p>
-            {a.comment && <p className="text-sm text-foreground/60 mt-2 italic">&ldquo;{a.comment}&rdquo;</p>}
-            {a.decidedAt && <p className="text-xs text-foreground/40 mt-1">{new Date(a.decidedAt).toLocaleString(locale)}</p>}
+      <div className="rounded-2xl border border-violet-500/20 bg-surface shadow-sm overflow-hidden">
+        <div className="px-6 py-8 text-center border-b border-border/50 bg-gradient-to-b from-violet-500/5 to-transparent">
+          <div className={cn("w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4", marketingRegistered ? "bg-violet-500/15" : "bg-foreground/[0.06]")}>
+            <ShieldCheck size={32} className={marketingRegistered ? "text-violet-600" : "text-foreground/30"} />
           </div>
-          <ApproverStatusBadge status={a.status} locale={locale} t={t} />
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/40 mb-2">{t("step9.registrationTitle")}</p>
+          <p className="font-mono text-2xl font-bold text-foreground">
+            {marketingRegistered ? req.marketingPlanRegistrationNumber : t("step9.pendingNumber")}
+          </p>
+          {req.marketingPlanRegisteredAt && (
+            <p className="text-sm text-foreground/50 mt-2">
+              {t("regDate")}: {new Date(req.marketingPlanRegisteredAt).toLocaleString(locale)}
+            </p>
+          )}
         </div>
-      ))}
-      {myPendingApproval && (
-        <div className="flex gap-2 pt-2">
-          <Button onClick={onApprove} disabled={acting}>{t("approve")}</Button>
-          <Button variant="secondary" onClick={onReject} disabled={acting}>{t("reject")}</Button>
+        <div className="p-6">
+          <p className="text-sm text-foreground/60 leading-relaxed">
+            {marketingRegistered ? t("step9.registrationDoneHint") : t("step9.registrationPendingHint")}
+          </p>
         </div>
-      )}
-    </div>
-  );
-}
-
-function TopologyTab({ req, locale, t }: { req: ProcurementRequest; locale: string; t: ReturnType<typeof useTranslations> }) {
-  return (
-    <div className="space-y-6">
-      <p className="text-sm text-foreground/55 max-w-2xl">{t("topologyHint")}</p>
-      <FullTopology nodes={req.topology} locale={locale} />
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {req.topology.filter((n) => n.status !== "Skipped").map((node) => (
-          <TopologyCard key={node.key} node={node} locale={locale} t={t} />
-        ))}
       </div>
     </div>
   );
-}
-
-function TimelineTab({ req, locale, t }: { req: ProcurementRequest; locale: string; t: ReturnType<typeof useTranslations> }) {
-  if (req.timeline.length === 0) return <EmptyPanel message={t("noTimeline")} />;
-  return (
-    <div className="max-w-2xl">
-      <ol className="relative border-l-2 border-atg-blue/20 ml-4 space-y-6">
-        {[...req.timeline].reverse().map((ev) => (
-          <li key={ev.id} className="ml-6 relative">
-            <span className="absolute -left-[1.65rem] top-1 w-3 h-3 rounded-full bg-atg-blue ring-4 ring-background" />
-            <div className="rounded-xl border border-border/60 bg-surface p-4 shadow-sm">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="text-sm font-semibold">{timelineActionLabel(ev.action, locale)}</span>
-                <span className="text-xs text-foreground/40">{new Date(ev.createdAt).toLocaleString(locale)}</span>
-              </div>
-              <p className="text-sm text-foreground/55">{ev.actorName}</p>
-              {ev.details && <p className="text-xs text-foreground/45 mt-1 font-mono">{ev.details}</p>}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
-function MiniTopology({ nodes, locale }: { nodes: ProcurementTopologyNode[]; locale: string }) {
-  const visible = nodes.filter((n) => n.status !== "Skipped");
-  return (
-    <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm overflow-x-auto">
-      <div className="flex items-center gap-0 min-w-max">
-        {visible.map((node, i) => (
-          <div key={node.key} className="flex items-center">
-            <div className={cn("flex flex-col items-center w-28 px-1", node.status === "Active" && "scale-105")}>
-              <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-2 transition-all",
-                node.status === "Completed" && "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30",
-                node.status === "Active" && "bg-sky-500 text-white shadow-lg shadow-sky-500/30 ring-4 ring-sky-500/20",
-                node.status === "Pending" && "bg-foreground/[0.08] text-foreground/35")}>
-                {node.status === "Completed" ? <CheckCircle2 size={18} /> : node.status === "Active" ? <Clock size={18} /> : <Circle size={18} />}
-              </div>
-              <p className={cn("text-[10px] font-semibold text-center leading-tight", node.status === "Active" ? "text-sky-600" : "text-foreground/55")}>
-                {topologyLabel(node, locale)}
-              </p>
-            </div>
-            {i < visible.length - 1 && (
-              <ArrowRight size={14} className={cn("mx-1 shrink-0", visible[i + 1].status !== "Pending" ? "text-emerald-500" : "text-foreground/20")} />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FullTopology({ nodes, locale }: { nodes: ProcurementTopologyNode[]; locale: string }) {
-  const visible = nodes.filter((n) => n.status !== "Skipped");
-  return (
-    <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 shadow-xl overflow-x-auto">
-      <div className="flex items-stretch gap-0 min-w-max">
-        {visible.map((node, i) => (
-          <div key={node.key} className="flex items-center">
-            <div className={cn("relative w-44 rounded-2xl p-4 border transition-all",
-              node.status === "Completed" && "bg-emerald-500/20 border-emerald-400/40",
-              node.status === "Active" && "bg-sky-500/25 border-sky-400/50 shadow-lg shadow-sky-500/20 scale-105",
-              node.status === "Pending" && "bg-white/5 border-white/10 opacity-60")}>
-              {node.status === "Active" && <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-400 text-slate-900">Live</span>}
-              <p className="text-white font-semibold text-sm leading-snug">{topologyLabel(node, locale)}</p>
-              {topologyDept(node, locale) && <p className="text-white/45 text-[11px] mt-2 leading-tight">{topologyDept(node, locale)}</p>}
-              {node.assigneeName && <p className="text-white/70 text-xs mt-2 flex items-center gap-1"><User size={11} />{node.assigneeName}</p>}
-            </div>
-            {i < visible.length - 1 && (
-              <div className={cn("w-12 h-0.5 mx-1", visible[i + 1].status !== "Pending" ? "bg-emerald-400" : "bg-white/15")} />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TopologyCard({ node, locale, t }: { node: ProcurementTopologyNode; locale: string; t: ReturnType<typeof useTranslations> }) {
-  return (
-    <div className={cn("rounded-xl border p-4", node.status === "Active" && "border-sky-500/40 ring-2 ring-sky-500/10")}>
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <p className="text-sm font-semibold">{topologyLabel(node, locale)}</p>
-        <span className="text-[10px] font-bold uppercase text-foreground/45">{topologyStatusLabel(node.status, locale)}</span>
-      </div>
-      {topologyDept(node, locale) && <p className="text-xs text-foreground/50">{topologyDept(node, locale)}</p>}
-      {node.assigneeName && <p className="text-xs text-foreground/60 mt-2">{node.assigneeName}</p>}
-      {node.completedAt && <p className="text-[10px] text-foreground/40 mt-2">{new Date(node.completedAt).toLocaleString(locale)}</p>}
-    </div>
-  );
-}
-
-function ApproverStatusBadge({ status, locale, t }: { status: string; locale: string; t: ReturnType<typeof useTranslations> }) {
-  const map: Record<string, string> = {
-    Approved: "text-emerald-600 bg-emerald-500/10",
-    Pending: "text-amber-600 bg-amber-500/10",
-    Rejected: "text-red-600 bg-red-500/10",
-  };
-  const labels: Record<string, string> = {
-    Approved: t("statusApproved"),
-    Pending: t("statusPending"),
-    Rejected: t("statusRejected"),
-  };
-  return <span className={cn("text-[10px] font-bold uppercase px-2 py-1 rounded-lg shrink-0", map[status])}>{labels[status] ?? status}</span>;
 }
 
 function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -898,62 +839,6 @@ function ActionCard({ title, subtitle, variant, children }: { title: string; sub
       <h2 className="text-sm font-bold mb-1">{title}</h2>
       {subtitle && <p className="text-sm text-foreground/55 mb-4">{subtitle}</p>}
       {children}
-    </div>
-  );
-}
-
-function EmptyPanel({ message }: { message: string }) {
-  return <div className="rounded-2xl border border-dashed border-border/60 py-16 text-center text-foreground/40 text-sm">{message}</div>;
-}
-
-function Step9Form({
-  documentId, approvers, setApprovers, attachments, setAttachments, assignable, acting, onSubmit, t,
-}: {
-  documentId: string;
-  approvers: ApproverRow[];
-  setApprovers: (v: ApproverRow[]) => void;
-  attachments: AttachmentRow[];
-  setAttachments: (v: AttachmentRow[]) => void;
-  assignable: { id: string; fullName: string }[];
-  acting: boolean;
-  onSubmit: () => void;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  const inputClass = "w-full rounded-lg border border-border/80 bg-background px-2 py-1.5 text-sm";
-  return (
-    <div className="mt-4 space-y-3 border-t border-border/40 pt-3">
-      <p className="text-xs font-semibold text-foreground/50">{t("step9Hint")}</p>
-      {attachments.map((a, i) => (
-        <div key={i} className="flex gap-2 items-start">
-          <select className={cn(inputClass, "w-28")} value={a.kind} onChange={(e) => { const next = [...attachments]; next[i] = { ...next[i], kind: e.target.value as ProcurementAttachmentKind }; setAttachments(next); }}>
-            <option value="TechnicalAssignment">TA</option>
-            <option value="MaterialRequisition">MR</option>
-            <option value="ServiceRequisition">SR</option>
-          </select>
-          <DocumentFileUpload
-            folder={`procurement/${documentId}`}
-            fileName={a.fileName}
-            storageKey={a.storageKey}
-            disabled={acting}
-            labels={{ uploading: t("uploading"), attached: t("fileAttached") }}
-            onUploaded={(fileName, storageKey) => {
-              const next = [...attachments];
-              next[i] = { ...next[i], fileName, storageKey };
-              setAttachments(next);
-            }}
-          />
-        </div>
-      ))}
-      {approvers.map((a, i) => (
-        <div key={i} className="flex gap-2">
-          <span className="text-xs w-28 shrink-0 py-2 text-foreground/50">{approverRoleLabel(a.role, "en")}</span>
-          <select className={cn(inputClass, "flex-1")} value={a.userId} onChange={(e) => { const next = [...approvers]; next[i] = { ...next[i], userId: e.target.value }; setApprovers(next); }}>
-            <option value="">{t("selectUser")}</option>
-            {assignable.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-          </select>
-        </div>
-      ))}
-      <Button size="sm" disabled={acting} onClick={onSubmit}>{t("submitApproval")}</Button>
     </div>
   );
 }

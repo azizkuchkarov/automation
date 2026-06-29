@@ -34,7 +34,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Details")
                         .HasColumnType("text");
@@ -72,7 +72,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(30)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -120,7 +120,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("DepartmentId")
                         .HasColumnType("uuid");
@@ -131,14 +131,14 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(4000)");
 
                     b.Property<DateTime?>("DueDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("ExternalReference")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<DateTime?>("IncomingDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("IncomingNumber")
                         .HasMaxLength(50)
@@ -161,7 +161,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<DateTime?>("RegisteredAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("SenderName")
                         .HasMaxLength(200)
@@ -174,12 +174,12 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("TitleRu")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("TranslationRequestCount")
                         .HasColumnType("integer");
@@ -190,7 +190,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(40)");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
@@ -223,7 +223,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Details")
                         .HasMaxLength(500)
@@ -264,7 +264,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(4000)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("DocumentId")
                         .HasColumnType("uuid");
@@ -284,10 +284,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("InformedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Phase")
                         .IsRequired()
@@ -295,7 +295,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(30)");
 
                     b.Property<DateTime?>("RoutedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid?>("RoutedById")
                         .HasColumnType("uuid");
@@ -325,7 +325,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("InformedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid?>("TaskId")
                         .HasColumnType("uuid");
@@ -363,7 +363,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Currency")
                         .IsRequired()
@@ -425,7 +425,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("BudgetNumber")
                         .HasMaxLength(100)
@@ -441,10 +441,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("ReminderSentAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("SubmittedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
@@ -462,7 +462,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("AttachmentKey")
                         .HasColumnType("text");
@@ -471,7 +471,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("EvaluationGroupMembers")
                         .HasColumnType("text");
@@ -508,10 +508,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(30)");
 
                     b.Property<DateTime?>("SubmittedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("VatConsidered")
                         .HasColumnType("boolean");
@@ -533,7 +533,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("AcceptedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid?>("AssignedByManagerId")
                         .HasColumnType("uuid");
@@ -548,7 +548,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(10)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateOnly?>("DeadlineBaseDate")
                         .HasColumnType("date");
@@ -583,22 +583,22 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("PlanApprovedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("PlanPreparedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("PlanRegisteredAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("PlanSentToManagementAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("PlanSubmittedToPortalAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("PortalApprovalStartedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("PortalApprovalType")
                         .HasMaxLength(50)
@@ -629,11 +629,19 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("RfqDocumentFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("RfqDocumentStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<bool>("RfqOpenSearchDone")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("RfqPreparedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("RfqPublishedAtgSite")
                         .HasColumnType("boolean");
@@ -667,10 +675,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("TzIssueResolvedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
@@ -693,6 +701,65 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.ToTable("marketing_records", (string)null);
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MarketingRfqChannelRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExternalNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("HelpDeskTicketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MarketingRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("WorkTaskId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedUserId");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("HelpDeskTicketId");
+
+                    b.HasIndex("MarketingRecordId");
+
+                    b.HasIndex("WorkTaskId");
+
+                    b.ToTable("marketing_rfq_channel_requests", (string)null);
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Organization", b =>
                 {
                     b.Property<Guid>("Id")
@@ -705,7 +772,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -757,6 +824,46 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.ToTable("positions", (string)null);
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementMarketingPlanApprover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("procurement_marketing_plan_approvers", (string)null);
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementRequestApprover", b =>
                 {
                     b.Property<Guid>("Id")
@@ -768,7 +875,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.Property<DateTime?>("DecidedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("DocumentId")
                         .HasColumnType("uuid");
@@ -812,17 +919,17 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
-                    b.Property<string>("StorageKey")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("UploadedById")
                         .HasColumnType("uuid");
@@ -841,6 +948,20 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<Guid>("DocumentId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ContractsAcceptedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ContractsAssignedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("ContractsSpecialistId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContractsSubPhase")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<Guid?>("ContractsTaskId")
                         .HasColumnType("uuid");
 
@@ -848,7 +969,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("EamFormationDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("EamNumber")
                         .HasMaxLength(50)
@@ -866,22 +987,38 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("MarketingAcceptedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("MarketingActiveBranch")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<DateTime?>("MarketingAssignedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTime?>("MarketingBranchStartedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("MarketingCompletedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("MarketingCurrentStep")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(1);
+
+                    b.Property<DateTime?>("MarketingPlanApprovalSubmittedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("MarketingPlanRegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("MarketingPlanRegisteredById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MarketingPlanRegistrationNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<Guid?>("MarketingSpecialistId")
                         .HasColumnType("uuid");
@@ -899,10 +1036,30 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Region")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RegionLabelEn")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("RegionLabelRu")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.Property<Guid?>("ResponsibleTaskId")
                         .HasColumnType("uuid");
 
                     b.HasKey("DocumentId");
+
+                    b.HasIndex("ContractsSpecialistId");
 
                     b.HasIndex("InitiatorDepartmentId");
 
@@ -913,6 +1070,48 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.ToTable("procurement_request_details", (string)null);
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementStepComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("DocumentId", "Phase", "StepNumber");
+
+                    b.ToTable("procurement_step_comments", (string)null);
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -920,10 +1119,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsRevoked")
                         .HasColumnType("boolean");
@@ -960,7 +1159,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("FollowupSentAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("MarketingRecordId")
                         .HasColumnType("uuid");
@@ -981,10 +1180,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.Property<DateTime?>("ResponseReceivedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("SentAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
@@ -1000,10 +1199,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("AcceptedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("AssignedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid?>("AssignedById")
                         .HasColumnType("uuid");
@@ -1017,13 +1216,13 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(30)");
 
                     b.Property<DateTime?>("ClosedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -1047,7 +1246,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1059,11 +1258,11 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
@@ -1098,7 +1297,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Details")
                         .HasMaxLength(500)
@@ -1139,7 +1338,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(4000)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("IsInternal")
                         .HasColumnType("boolean");
@@ -1166,7 +1365,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uuid");
@@ -1207,7 +1406,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(5)");
 
                     b.Property<DateTime?>("LastLoginAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -1247,7 +1446,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(30)");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
@@ -1276,10 +1475,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("CreatedById")
                         .HasColumnType("uuid");
@@ -1293,7 +1492,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(4000)");
 
                     b.Property<DateTime?>("DueDate")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid?>("ExternalId")
                         .HasColumnType("uuid");
@@ -1317,7 +1516,7 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1326,11 +1525,11 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
 
@@ -1556,6 +1755,24 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Request");
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MarketingRfqChannelRequest", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.MarketingRecord", "Record")
+                        .WithMany("RfqChannelRequests")
+                        .HasForeignKey("MarketingRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("Record");
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Organization", b =>
                 {
                     b.HasOne("ATG.Platform.Domain.Entities.Organization", "Parent")
@@ -1564,6 +1781,25 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementMarketingPlanApprover", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.ProcurementRequestDetail", "Request")
+                        .WithMany("MarketingPlanApprovers")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementRequestApprover", b =>
@@ -1606,6 +1842,11 @@ namespace ATG.Platform.Infrastructure.Migrations
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementRequestDetail", b =>
                 {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ContractsSpecialist")
+                        .WithMany()
+                        .HasForeignKey("ContractsSpecialistId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ATG.Platform.Domain.Entities.Document", "Document")
                         .WithOne()
                         .HasForeignKey("ATG.Platform.Domain.Entities.ProcurementRequestDetail", "DocumentId")
@@ -1627,6 +1868,8 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasForeignKey("MarketingSpecialistId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.Navigation("ContractsSpecialist");
+
                     b.Navigation("Document");
 
                     b.Navigation("Initiator");
@@ -1634,6 +1877,25 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("InitiatorDepartment");
 
                     b.Navigation("MarketingSpecialist");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementStepComment", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.ProcurementRequestDetail", "Request")
+                        .WithMany("StepComments")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Request");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.RefreshToken", b =>
@@ -1822,6 +2084,8 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Navigation("PortalApprovals");
 
+                    b.Navigation("RfqChannelRequests");
+
                     b.Navigation("RfqDispatches");
                 });
 
@@ -1845,7 +2109,11 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Navigation("Attachments");
 
+                    b.Navigation("MarketingPlanApprovers");
+
                     b.Navigation("MarketingRecord");
+
+                    b.Navigation("StepComments");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Ticket", b =>

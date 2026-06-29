@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ATG.Platform.Infrastructure.Services;
 
-public class HelpDeskService(AppDbContext db, IAuditService audit) : IHelpDeskService
+public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfqChannelService rfqChannels) : IHelpDeskService
 {
     public IReadOnlyList<HelpDeskCategoryDto> GetCategories() =>
         HelpDeskRouting.Categories.Select(c => new HelpDeskCategoryDto(
@@ -209,6 +209,7 @@ public class HelpDeskService(AppDbContext db, IAuditService audit) : IHelpDeskSe
         await AddActivityAsync(ticket, actorId, "closed", from, TicketStatus.Closed, null, ct);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "TicketClosed", "Ticket", ticket.Id, ticket.Number, ip, ct);
+        await rfqChannels.NotifyHelpDeskTicketClosedAsync(ticket.Id, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }

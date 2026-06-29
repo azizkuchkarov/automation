@@ -24,6 +24,14 @@ public class ProcurementRequestDetail
 
     public Guid? InitiatorDepartmentId { get; set; }
 
+    public ProcurementRegion Region { get; set; }
+
+    public string? RegionLabelRu { get; set; }
+
+    public string? RegionLabelEn { get; set; }
+
+    public TaskPriority Priority { get; set; } = TaskPriority.Medium;
+
     public string? EamNumber { get; set; }
 
     public DateTime? EamFormationDate { get; set; }
@@ -38,6 +46,8 @@ public class ProcurementRequestDetail
 
     public Guid? MarketingSpecialistId { get; set; }
 
+    public DateTime? MarketingAssignedAt { get; set; }
+
     public DateTime? MarketingAcceptedAt { get; set; }
 
     public DateTime? MarketingCompletedAt { get; set; }
@@ -47,6 +57,22 @@ public class ProcurementRequestDetail
     public DateTime? MarketingBranchStartedAt { get; set; }
 
     public Guid? ContractsTaskId { get; set; }
+
+    public ProcurementContractsSubPhase ContractsSubPhase { get; set; } = ProcurementContractsSubPhase.Pending;
+
+    public Guid? ContractsSpecialistId { get; set; }
+
+    public DateTime? ContractsAssignedAt { get; set; }
+
+    public DateTime? ContractsAcceptedAt { get; set; }
+
+    public DateTime? MarketingPlanApprovalSubmittedAt { get; set; }
+
+    public string? MarketingPlanRegistrationNumber { get; set; }
+
+    public DateTime? MarketingPlanRegisteredAt { get; set; }
+
+    public Guid? MarketingPlanRegisteredById { get; set; }
 
 
 
@@ -58,11 +84,17 @@ public class ProcurementRequestDetail
 
     public User? MarketingSpecialist { get; set; }
 
+    public User? ContractsSpecialist { get; set; }
+
     public MarketingRecord? MarketingRecord { get; set; }
 
     public ICollection<ProcurementRequestApprover> Approvers { get; set; } = [];
 
+    public ICollection<ProcurementMarketingPlanApprover> MarketingPlanApprovers { get; set; } = [];
+
     public ICollection<ProcurementRequestAttachment> Attachments { get; set; } = [];
+
+    public ICollection<ProcurementStepComment> StepComments { get; set; } = [];
 
 }
 

@@ -35,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<IDcsService, DcsService>();
         services.AddScoped<IProcurementRequestService, ProcurementRequestService>();
         services.AddScoped<IMarketingService, MarketingService>();
+        services.AddScoped<MarketingRfqChannelService>();
+        services.AddScoped<IMarketingRfqChannelService>(sp => sp.GetRequiredService<MarketingRfqChannelService>());
         services.AddScoped<IIncomingLetterService, IncomingLetterService>();
         services.AddScoped<ITaskService, TaskService>();
         services.AddScoped<ILdapService, LdapService>();

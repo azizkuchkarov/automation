@@ -12,6 +12,7 @@ public static class HoDataSeeder
     {
         ["pangshubao@atg.uz"] = "12345",
         ["user2@atg.uz"] = "12345",
+        ["user3@atg.uz"] = "12345",
     };
 
     public static async Task SeedAsync(IServiceProvider services)

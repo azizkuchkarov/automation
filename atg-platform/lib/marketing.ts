@@ -28,6 +28,8 @@ export type MarketingRecordStatus =
   | "Cancelled";
 
 export type RfqDispatchType = "AtgSite" | "Tenderweek" | "Vendor" | "Distributor" | "OpenSource";
+export type MarketingRfqChannelType = "AtgWebsite" | "Tenderweek";
+export type MarketingRfqChannelStatus = "Open" | "Completed";
 export type MarketingOfferSource = "Manual" | "AtgSite" | "Tenderweek" | "Vendor" | "Distributor" | "OpenSource";
 
 export interface MarketingRecordListItem {
@@ -81,6 +83,18 @@ export interface RfqDispatch {
   notes?: string;
 }
 
+export interface MarketingRfqChannelRequest {
+  id: string;
+  channel: MarketingRfqChannelType;
+  status: MarketingRfqChannelStatus;
+  externalNumber?: string;
+  helpDeskTicketId?: string;
+  workTaskId?: string;
+  assignedUserName?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
 export interface MarketingRecord extends MarketingRecordListItem {
   registeredDate?: string;
   initiatorFullName?: string;
@@ -92,6 +106,8 @@ export interface MarketingRecord extends MarketingRecordListItem {
   procurementMethod?: ProcurementMethodType;
   budgetAmount?: number;
   rfqPreparedAt?: string;
+  rfqDocumentStorageKey?: string;
+  rfqDocumentFileName?: string;
   rfqPublishedAtgSite: boolean;
   rfqPublishedTenderweek: boolean;
   rfqSentToVendor: boolean;
@@ -99,6 +115,7 @@ export interface MarketingRecord extends MarketingRecordListItem {
   rfqOpenSearchDone: boolean;
   offers: MarketingOffer[];
   rfqDispatches: RfqDispatch[];
+  rfqChannelRequests?: MarketingRfqChannelRequest[];
   offersSummary?: {
     compliantCount: number;
     averageCompliantAmount?: number;
@@ -205,6 +222,18 @@ export function rfqDispatchLabel(type: RfqDispatchType, locale: string) {
     Tenderweek: "Tenderweek",
   };
   return locale.startsWith("en") ? en[type] : ru[type];
+}
+
+export function rfqChannelLabel(channel: MarketingRfqChannelType, locale: string) {
+  const ru: Record<MarketingRfqChannelType, string> = {
+    AtgWebsite: "Сайт ATG (Help Desk IT)",
+    Tenderweek: "Tenderweek (отдел тендеров)",
+  };
+  const en: Record<MarketingRfqChannelType, string> = {
+    AtgWebsite: "ATG Website (Help Desk IT)",
+    Tenderweek: "Tenderweek (Tender Section)",
+  };
+  return locale.startsWith("en") ? en[channel] : ru[channel];
 }
 
 export function deadlineColorClass(color?: string) {
