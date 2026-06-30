@@ -32,6 +32,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MarketingRfqChannelRequest> MarketingRfqChannelRequests => Set<MarketingRfqChannelRequest>();
     public DbSet<MarketingProcurementPlan> MarketingProcurementPlans => Set<MarketingProcurementPlan>();
     public DbSet<MarketingPortalApproval> MarketingPortalApprovals => Set<MarketingPortalApproval>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -384,6 +385,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Body).HasMaxLength(4000);
             e.HasOne(x => x.Letter).WithMany(x => x.Comments).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Author).WithMany().HasForeignKey(x => x.AuthorId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<UserNotification>(e =>
+        {
+            e.ToTable("user_notifications");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.IsRead, x.CreatedAt });
+            e.Property(x => x.Type).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Title).HasMaxLength(300);
+            e.Property(x => x.Body).HasMaxLength(1000);
+            e.Property(x => x.EntityType).HasMaxLength(40);
+            e.Property(x => x.ActionUrl).HasMaxLength(500);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

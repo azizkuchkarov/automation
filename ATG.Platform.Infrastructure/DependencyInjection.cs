@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.Configure<LdapOptions>(config.GetSection(LdapOptions.SectionName));
         services.PostConfigure<LdapOptions>(ApplyLdapEnvironmentOverrides);
         services.Configure<MinioOptions>(config.GetSection(MinioOptions.SectionName));
+        services.Configure<NotificationOptions>(config.GetSection(NotificationOptions.SectionName));
 
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
@@ -31,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<IDepartmentService, DepartmentService>();
         services.AddScoped<IPositionService, PositionService>();
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IHelpDeskService, HelpDeskService>();
         services.AddScoped<IDcsService, DcsService>();
         services.AddScoped<IProcurementRequestService, ProcurementRequestService>();
@@ -43,6 +45,7 @@ public static class DependencyInjection
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<IFileStorageService, FileStorageService>();
         services.AddScoped<MarketingBackgroundJobs>();
+        services.AddScoped<NotificationBackgroundJobs>();
 
         return services;
     }

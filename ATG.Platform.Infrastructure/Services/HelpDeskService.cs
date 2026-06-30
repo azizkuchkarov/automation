@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ATG.Platform.Infrastructure.Services;
 
-public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfqChannelService rfqChannels) : IHelpDeskService
+public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfqChannelService rfqChannels, INotificationService notifications) : IHelpDeskService
 {
     public IReadOnlyList<HelpDeskCategoryDto> GetCategories() =>
         HelpDeskRouting.Categories.Select(c => new HelpDeskCategoryDto(
@@ -171,6 +171,8 @@ public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfq
             $"Assigned to {assignee.FullName}", ct);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "TicketAssigned", "Ticket", ticket.Id, assignee.Email, ip, ct);
+        await notifications.NotifyTicketAssignedAsync(
+            assignee.Id, ticket.Number, ticket.Title, ticket.Id, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }

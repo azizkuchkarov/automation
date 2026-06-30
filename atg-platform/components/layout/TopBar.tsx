@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { Settings } from "lucide-react";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export function TopBar() {
   const user = useAuthStore((s) => s.user);
@@ -52,6 +53,7 @@ export function TopBar() {
             <span className="text-xs text-foreground/60 hidden md:inline">{user.organizationName}</span>
           </div>
         )}
+        <NotificationBell />
         <ThemeToggle />
         <LanguageToggle />
         <button onClick={handleLogout} className="text-sm text-red-400 hover:underline">{t("logout")}</button>

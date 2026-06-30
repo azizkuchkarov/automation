@@ -13,7 +13,14 @@
     "comingSoon": "Скоро",
     "theme": "Тема",
     "dark": "Тёмная",
-    "light": "Светлая"
+    "light": "Светлая",
+    "notifications": {
+      "title": "Уведомления",
+      "empty": "Нет уведомлений",
+      "loading": "Загрузка…",
+      "markAllRead": "Прочитать все",
+      "live": "Онлайн"
+    }
   },
   "auth": {
     "title": "АТГ Платформа",

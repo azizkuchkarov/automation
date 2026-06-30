@@ -13,7 +13,14 @@
     "comingSoon": "Coming soon",
     "theme": "Theme",
     "dark": "Dark",
-    "light": "Light"
+    "light": "Light",
+    "notifications": {
+      "title": "Notifications",
+      "empty": "No notifications",
+      "loading": "Loading…",
+      "markAllRead": "Mark all read",
+      "live": "Live"
+    }
   },
   "auth": {
     "title": "ATG Platform",

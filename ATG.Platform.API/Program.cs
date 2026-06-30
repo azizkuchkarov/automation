@@ -1,7 +1,10 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using ATG.Platform.API.Hubs;
 using ATG.Platform.API.Json;
 using ATG.Platform.API.Middleware;
+using ATG.Platform.API.Services;
+using ATG.Platform.Application.Interfaces;
 using ATG.Platform.Infrastructure;
 using ATG.Platform.Infrastructure.Jobs;
 using ATG.Platform.Infrastructure.Seeds;
@@ -22,6 +25,8 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSignalR();
+builder.Services.AddScoped<INotificationPublisher, NotificationPublisher>();
 
 var hangfireEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true);
 if (hangfireEnabled)
@@ -57,6 +62,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             {
                 if (string.IsNullOrEmpty(ctx.Token) && ctx.Request.Cookies.ContainsKey("accessToken"))
                     ctx.Token = ctx.Request.Cookies["accessToken"];
+
+                var accessToken = ctx.Request.Query["access_token"];
+                if (string.IsNullOrEmpty(ctx.Token) && !string.IsNullOrEmpty(accessToken))
+                    ctx.Token = accessToken;
+
                 return Task.CompletedTask;
             }
         };
@@ -108,9 +118,14 @@ if (hangfireEnabled)
         "marketing-deadline-warnings",
         j => j.CheckMarketingDeadlinesAsync(),
         Cron.Daily(9));
+    RecurringJob.AddOrUpdate<NotificationBackgroundJobs>(
+        "approval-reminders",
+        j => j.CheckPendingApprovalRemindersAsync(),
+        Cron.Daily(4));
 }
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();
 

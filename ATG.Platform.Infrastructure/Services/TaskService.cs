@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ATG.Platform.Infrastructure.Services;
 
-public class TaskService(AppDbContext db, IAuditService audit, IMarketingRfqChannelService rfqChannels) : ITaskService
+public class TaskService(AppDbContext db, IAuditService audit, IMarketingRfqChannelService rfqChannels, INotificationService notifications) : ITaskService
 {
     public async Task<Result<TaskNavigationDto>> GetNavigationAsync(Guid actorId, CancellationToken ct = default)
     {
@@ -200,6 +200,9 @@ public class TaskService(AppDbContext db, IAuditService audit, IMarketingRfqChan
         db.WorkTasks.Add(task);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "TaskCreated", "WorkTask", task.Id, task.Number, ip, ct);
+        if (assignee.Id != actorId)
+            await notifications.NotifyTaskAssignedAsync(
+                assignee.Id, task.Number, task.Title, task.Id, task.Source, task.ExternalId, ct);
 
         var created = await TaskQuery().FirstAsync(t => t.Id == task.Id, ct);
         return Result<TaskListItemDto>.Ok(UnifiedTaskItem.FromWorkTask(created).ToDto());

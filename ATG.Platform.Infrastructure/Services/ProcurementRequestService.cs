@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ATG.Platform.Infrastructure.Services;
 
-public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMarketingService marketing, IMarketingRfqChannelService rfqChannels) : IProcurementRequestService
+public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMarketingService marketing, IMarketingRfqChannelService rfqChannels, INotificationService notifications) : IProcurementRequestService
 {
     private const string BmgmcTech = "BMGMC-TECH";
     private const string BmgmcAdm = "BMGMC-ADM";
@@ -253,6 +253,7 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
 
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementRequestCreated", "Document", doc.Id, number, ip, ct);
+        await NotifyLinkedTaskAsync(task, ct);
 
         return await GetByIdAsync(doc.Id, actorId, ct);
     }
@@ -324,6 +325,7 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
 
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementRequestCreated", "Document", doc.Id, number, ip, ct);
+        await NotifyNextApproverAsync(detail, ct);
 
         return await GetByIdAsync(doc.Id, actorId, ct);
     }
@@ -398,6 +400,7 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
             DocumentStatus.InReview, "Step 9 — approval initiated", ct);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementSubmittedForApproval", "Document", id, "step9", ip, ct);
+        await NotifyNextApproverAsync(detail, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }
@@ -432,6 +435,11 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementApproved", "Document", id, approver.Role.ToString(), ip, ct);
 
+        if (detail.Phase == ProcurementRequestPhase.Marketing && detail.MarketingTaskId is Guid marketingTaskId)
+            await NotifyLinkedTaskByIdAsync(marketingTaskId, ct);
+        else if (detail.Approvers.Any(a => a.Status == ProcurementApproverStatus.Pending))
+            await NotifyNextApproverAsync(detail, ct);
+
         return await GetByIdAsync(id, actorId, ct);
     }
 
@@ -461,6 +469,8 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
             approver.Role.ToString(), ct);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementRejected", "Document", id, approver.Role.ToString(), ip, ct);
+        await notifications.NotifyDcsApprovalRejectedAsync(
+            detail.Document.AuthorId, detail.Document.Number, detail.DocumentId, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }
@@ -494,6 +504,8 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
 
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementForwardedToContracts", "Document", id, null, ip, ct);
+        if (detail.ContractsTaskId is Guid contractsTaskId)
+            await NotifyLinkedTaskByIdAsync(contractsTaskId, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }
@@ -614,6 +626,7 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementMarketingPlanSubmitted", "Document", id, null, ip, ct);
         await marketing.SyncStatusFromWorkflowAsync(id, ct);
+        await NotifyNextPlanApproverAsync(detail, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }
@@ -641,6 +654,8 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementMarketingPlanApproved", "Document", id, approver.Role.ToString(), ip, ct);
         await marketing.SyncStatusFromWorkflowAsync(id, ct);
+        if (detail.MarketingPlanApprovers.Any(a => a.Status == ProcurementApproverStatus.Pending))
+            await NotifyNextPlanApproverAsync(detail, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }
@@ -912,6 +927,8 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
             request.Comment.Trim(), ProcurementStepCommentKind.Assignment, ct);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "ProcurementMarketingAssigned", "Document", id, request.SpecialistId.ToString(), ip, ct);
+        if (detail.MarketingTaskId is Guid marketingTaskId)
+            await NotifyLinkedTaskByIdAsync(marketingTaskId, ct);
 
         var marketingResult = await marketing.AssignExecutorAsync(id, new AssignMarketingExecutorRequest(request.SpecialistId), actorId, ct);
         if (!marketingResult.IsSuccess)
@@ -1829,5 +1846,32 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
             .Include(d => d.Organization)
             .FirstOrDefaultAsync(d => d.Id == actor.DepartmentId, ct);
         return dept is null ? (ProcurementRegion.Bmgmc, "BMGMC", "BMGMC") : ResolveRegion(dept.Organization);
+    }
+
+    private async Task NotifyNextApproverAsync(ProcurementRequestDetail detail, CancellationToken ct)
+    {
+        var next = GetNextPendingApprover(detail);
+        if (next is null) return;
+        await notifications.NotifyDcsApprovalRequiredAsync(
+            next.UserId, detail.Document.Number, detail.Document.Title, detail.DocumentId, ct);
+    }
+
+    private async Task NotifyNextPlanApproverAsync(ProcurementRequestDetail detail, CancellationToken ct)
+    {
+        var next = GetNextPendingPlanApprover(detail);
+        if (next is null) return;
+        await notifications.NotifyMarketingPlanApprovalRequiredAsync(
+            next.UserId, detail.Document.Number, detail.DocumentId, ct);
+    }
+
+    private Task NotifyLinkedTaskAsync(WorkTask task, CancellationToken ct) =>
+        notifications.NotifyTaskAssignedAsync(
+            task.AssigneeId, task.Number, task.Title, task.Id, task.Source, task.ExternalId, ct);
+
+    private async Task NotifyLinkedTaskByIdAsync(Guid taskId, CancellationToken ct)
+    {
+        var task = await db.WorkTasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == taskId, ct);
+        if (task is not null)
+            await NotifyLinkedTaskAsync(task, ct);
     }
 }

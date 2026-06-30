@@ -189,6 +189,20 @@ public interface IJwtService
     string GenerateAccessToken(User user);
 }
 
+public interface INotificationService
+{
+    Task NotifyDcsApprovalRequiredAsync(Guid recipientId, string documentNumber, string documentTitle, Guid documentId, CancellationToken ct = default);
+    Task NotifyMarketingPlanApprovalRequiredAsync(Guid recipientId, string documentNumber, Guid documentId, CancellationToken ct = default);
+    Task NotifyTaskAssignedAsync(Guid recipientId, string taskNumber, string taskTitle, Guid taskId, TaskSource source, Guid? externalId, CancellationToken ct = default);
+    Task NotifyTicketAssignedAsync(Guid recipientId, string ticketNumber, string ticketTitle, Guid ticketId, CancellationToken ct = default);
+    Task NotifyDcsApprovalRejectedAsync(Guid recipientId, string documentNumber, Guid documentId, CancellationToken ct = default);
+    Task ProcessApprovalRemindersAsync(CancellationToken ct = default);
+    Task<Result<PagedResult<NotificationDto>>> GetInboxAsync(Guid actorId, bool unreadOnly, int page, int pageSize, CancellationToken ct = default);
+    Task<Result<NotificationUnreadCountDto>> GetUnreadCountAsync(Guid actorId, CancellationToken ct = default);
+    Task<Result<bool>> MarkReadAsync(Guid id, Guid actorId, CancellationToken ct = default);
+    Task<Result<bool>> MarkAllReadAsync(Guid actorId, CancellationToken ct = default);
+}
+
 public interface ILdapService
 {
     /// <summary>Authenticates against LDAP/AD. Returns normalized email on success.</summary>
