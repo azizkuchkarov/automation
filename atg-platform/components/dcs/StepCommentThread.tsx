@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { CheckCircle2, MessageSquare, Send } from "lucide-react";
 import { ProcurementStepComment, ProcurementWorkflowPhase } from "@/lib/procurementRequest";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +23,7 @@ interface Props {
   onAdd?: (body: string) => Promise<void>;
   completeAction?: CompleteAction;
   completePlaceholder?: string;
+  completeActionsPrefix?: ReactNode;
 }
 
 export function StepCommentThread({
@@ -36,6 +37,7 @@ export function StepCommentThread({
   onAdd,
   completeAction,
   completePlaceholder,
+  completeActionsPrefix,
 }: Props) {
   const [draft, setDraft] = useState("");
   const filtered = comments.filter((c) => c.phase === phase && c.stepNumber === stepNumber);
@@ -91,14 +93,17 @@ export function StepCommentThread({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
-          <Button
-            size="sm"
-            disabled={acting || completeAction?.disabled || !draft.trim()}
-            onClick={submitComplete}
-          >
-            <CheckCircle2 size={14} className="mr-1.5" />
-            {completeAction?.label}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {completeActionsPrefix}
+            <Button
+              size="sm"
+              disabled={acting || completeAction?.disabled || !draft.trim()}
+              onClick={submitComplete}
+            >
+              <CheckCircle2 size={14} className="mr-1.5" />
+              {completeAction?.label}
+            </Button>
+          </div>
         </div>
       )}
       {showNoteForm && (

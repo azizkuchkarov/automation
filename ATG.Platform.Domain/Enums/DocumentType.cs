@@ -14,5 +14,6 @@ public enum DocumentType
     Payment,
     Accounting,
     SupplySection,
-    ProcurementRequest
+    ProcurementRequest,
+    HrLeaveRequest
 }

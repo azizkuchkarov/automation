@@ -89,6 +89,30 @@ internal sealed class UnifiedTaskItem
         DepartmentName, DepartmentNameEn,
         CreatedByName, DueDate, CreatedAt, UpdatedAt);
 
+    public UnifiedTaskItem WithDerivedStatus(DcsWorkTaskStatusResolver.ResolvedStatus derived) => new()
+    {
+        Id = Id,
+        Number = Number,
+        Title = Title,
+        Status = derived.Status,
+        Priority = Priority,
+        Source = Source,
+        ExternalId = ExternalId,
+        IsEditable = IsEditable,
+        AssigneeId = AssigneeId,
+        AssigneeName = AssigneeName,
+        AssigneeEmployeeId = AssigneeEmployeeId,
+        DepartmentId = DepartmentId,
+        DepartmentName = DepartmentName,
+        DepartmentNameEn = DepartmentNameEn,
+        OrganizationId = OrganizationId,
+        CreatedByName = CreatedByName,
+        DueDate = DueDate,
+        CreatedAt = CreatedAt,
+        UpdatedAt = derived.CompletedAt ?? derived.StartedAt ?? UpdatedAt,
+        CompletedAt = derived.CompletedAt ?? (derived.Status == WorkTaskStatus.Done ? CompletedAt ?? UpdatedAt : CompletedAt),
+    };
+
     private static WorkTaskStatus MapTicketStatus(TicketStatus status) => status switch
     {
         TicketStatus.Open or TicketStatus.Assigned or TicketStatus.Accepted => WorkTaskStatus.New,

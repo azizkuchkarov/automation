@@ -8,6 +8,13 @@ export type UnreadCountHandler = (count: number) => void;
 let connection: signalR.HubConnection | null = null;
 let startPromise: Promise<void> | null = null;
 
+/** Browser must reach the API hub directly — Next.js standalone does not proxy WebSockets. */
+function getHubUrl(): string {
+  const api = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (api) return `${api}/hubs/notifications`;
+  return "/hubs/notifications";
+}
+
 export function startNotificationHub(
   onNotification: NotificationHandler,
   onUnreadCount: UnreadCountHandler
@@ -16,7 +23,7 @@ export function startNotificationHub(
 
   if (!connection) {
     connection = new signalR.HubConnectionBuilder()
-      .withUrl("/hubs/notifications", {
+      .withUrl(getHubUrl(), {
         accessTokenFactory: () => useAuthStore.getState().accessToken ?? "",
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])

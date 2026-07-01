@@ -4,7 +4,6 @@ import { useAuthStore } from "@/store/authStore";
 import { isAdminRole, localizedDepartmentName, localizedUserName } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { logout } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -54,7 +53,6 @@ export function TopBar() {
           </div>
         )}
         <NotificationBell />
-        <ThemeToggle />
         <LanguageToggle />
         <button onClick={handleLogout} className="text-sm text-red-400 hover:underline">{t("logout")}</button>
       </div>

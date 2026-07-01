@@ -344,8 +344,10 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
             return Result<ProcurementRequestDto>.Fail("Steps apply only to Technical Affairs requests");
         if (detail.Phase != ProcurementRequestPhase.InProgress)
             return Result<ProcurementRequestDto>.Fail("Request is not in progress");
-        if (step < 1 || step > 8)
-            return Result<ProcurementRequestDto>.Fail("Use submit for step 9");
+        if (detail.Document.Status == DocumentStatus.Rejected)
+            return Result<ProcurementRequestDto>.Fail("Request has been rejected");
+        if (step < 1 || step > 5)
+            return Result<ProcurementRequestDto>.Fail("Use submit for step 6");
         if (detail.CurrentStep != step)
             return Result<ProcurementRequestDto>.Fail($"Current step is {detail.CurrentStep}");
 
@@ -357,6 +359,7 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         detail.Document.UpdatedAt = DateTime.UtcNow;
         await PersistStepCommentAsync(detail, actorId, ProcurementWorkflowPhase.TechnicalAffairs, step,
             comment, ProcurementStepCommentKind.StepCompletion, ct);
+        await SetWorkTaskStatusAsync(detail.ResponsibleTaskId, WorkTaskStatus.InProgress, ct);
         await AddDocumentActivityAsync(detail.Document, actorId, "step_completed", null, detail.Document.Status,
             comment, ct);
         await db.SaveChangesAsync(ct);
@@ -375,8 +378,11 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         if (actor is null || !CanWorkAsResponsible(actor, detail))
             return Result<ProcurementRequestDto>.Fail("Access denied");
 
-        if (detail.Flow != ProcurementRequestFlow.TechnicalAffairs || detail.CurrentStep != 9)
-            return Result<ProcurementRequestDto>.Fail("Step 9 is not active");
+        if (detail.Document.Status == DocumentStatus.Rejected)
+            return Result<ProcurementRequestDto>.Fail("Request has been rejected");
+
+        if (detail.Flow != ProcurementRequestFlow.TechnicalAffairs || detail.CurrentStep != 6)
+            return Result<ProcurementRequestDto>.Fail("Step 6 is not active");
         if (request.Approvers.Count == 0)
             return Result<ProcurementRequestDto>.Fail("Approvers are required");
         if (request.Attachments.Count == 0)
@@ -397,10 +403,46 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         detail.Document.Status = DocumentStatus.InReview;
         detail.Document.UpdatedAt = DateTime.UtcNow;
         await AddDocumentActivityAsync(detail.Document, actorId, "submitted_for_approval", null,
-            DocumentStatus.InReview, "Step 9 — approval initiated", ct);
+            DocumentStatus.InReview, "Step 6 — approval initiated", ct);
         await db.SaveChangesAsync(ct);
-        await audit.LogAsync(actorId, "ProcurementSubmittedForApproval", "Document", id, "step9", ip, ct);
+        await audit.LogAsync(actorId, "ProcurementSubmittedForApproval", "Document", id, "step6", ip, ct);
         await NotifyNextApproverAsync(detail, ct);
+
+        return await GetByIdAsync(id, actorId, ct);
+    }
+
+    public async Task<Result<ProcurementRequestDto>> RejectTasAsync(
+        Guid id, CompleteProcurementStepRequest request, Guid actorId, string? ip, CancellationToken ct = default)
+    {
+        var detail = await LoadDetailTrackedAsync(id, ct);
+        if (detail is null) return Result<ProcurementRequestDto>.Fail("Request not found");
+
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null || !CanWorkAsResponsible(actor, detail))
+            return Result<ProcurementRequestDto>.Fail("Access denied");
+
+        if (detail.Flow != ProcurementRequestFlow.TechnicalAffairs)
+            return Result<ProcurementRequestDto>.Fail("Rejection applies only to Technical Affairs requests");
+        if (detail.Phase != ProcurementRequestPhase.InProgress)
+            return Result<ProcurementRequestDto>.Fail("Request is not in the TAS workflow");
+        if (detail.Document.Status == DocumentStatus.Rejected)
+            return Result<ProcurementRequestDto>.Fail("Request is already rejected");
+
+        var comment = request?.Comment?.Trim();
+        if (string.IsNullOrWhiteSpace(comment))
+            return Result<ProcurementRequestDto>.Fail("Rejection reason is required");
+
+        detail.Document.Status = DocumentStatus.Rejected;
+        detail.Document.UpdatedAt = DateTime.UtcNow;
+
+        await SetWorkTaskStatusAsync(detail.ResponsibleTaskId, WorkTaskStatus.Cancelled, ct);
+
+        await PersistStepCommentAsync(detail, actorId, ProcurementWorkflowPhase.TechnicalAffairs, detail.CurrentStep,
+            comment, ProcurementStepCommentKind.Note, ct);
+        await AddDocumentActivityAsync(detail.Document, actorId, "tas_rejected", null, DocumentStatus.Rejected,
+            comment, ct);
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync(actorId, "ProcurementTasRejected", "Document", id, null, ip, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }
@@ -550,6 +592,8 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         detail.ContractsAcceptedAt = DateTime.UtcNow;
         detail.ContractsSubPhase = ProcurementContractsSubPhase.InProgress;
         detail.Document.UpdatedAt = DateTime.UtcNow;
+
+        await SetWorkTaskStatusAsync(detail.ContractsTaskId, WorkTaskStatus.InProgress, ct);
 
         await PersistStepCommentAsync(detail, actorId, ProcurementWorkflowPhase.Contracts, 1,
             request.Comment.Trim(), ProcurementStepCommentKind.Acceptance, ct);
@@ -722,6 +766,8 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         detail.MarketingCompletedAt = DateTime.UtcNow;
         detail.Document.UpdatedAt = DateTime.UtcNow;
 
+        await SetWorkTaskStatusAsync(detail.MarketingTaskId, WorkTaskStatus.Done, ct);
+
         var record = await db.MarketingRecords.FirstOrDefaultAsync(r => r.DocumentId == id, ct);
         if (record is not null)
         {
@@ -875,6 +921,8 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         detail.MarketingCurrentStep = 2;
         detail.MarketingSubPhase = ProcurementMarketingSubPhase.InProgress;
         detail.Document.UpdatedAt = DateTime.UtcNow;
+
+        await SetWorkTaskStatusAsync(detail.MarketingTaskId, WorkTaskStatus.InProgress, ct);
 
         await PersistStepCommentAsync(detail, actorId, ProcurementWorkflowPhase.Marketing, 1,
             request.Comment.Trim(), ProcurementStepCommentKind.Acceptance, ct);
@@ -1214,6 +1262,8 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
 
         if (detail.Flow == ProcurementRequestFlow.TechnicalAffairs)
             detail.CurrentStep = ProcurementRequestSteps.TotalSteps;
+
+        await SetWorkTaskStatusAsync(detail.ResponsibleTaskId, WorkTaskStatus.Done, ct);
 
         detail.Phase = ProcurementRequestPhase.Marketing;
         detail.MarketingSubPhase = ProcurementMarketingSubPhase.Pending;
@@ -1862,6 +1912,20 @@ public class ProcurementRequestService(AppDbContext db, IAuditService audit, IMa
         if (next is null) return;
         await notifications.NotifyMarketingPlanApprovalRequiredAsync(
             next.UserId, detail.Document.Number, detail.DocumentId, ct);
+    }
+
+    private async Task SetWorkTaskStatusAsync(Guid? taskId, WorkTaskStatus status, CancellationToken ct)
+    {
+        if (taskId is null) return;
+        var task = await db.WorkTasks.FirstOrDefaultAsync(t => t.Id == taskId, ct);
+        if (task is null || task.Status == status) return;
+
+        task.Status = status;
+        task.UpdatedAt = DateTime.UtcNow;
+        if (status == WorkTaskStatus.InProgress && task.StartedAt is null)
+            task.StartedAt = DateTime.UtcNow;
+        if (status == WorkTaskStatus.Done)
+            task.CompletedAt = DateTime.UtcNow;
     }
 
     private Task NotifyLinkedTaskAsync(WorkTask task, CancellationToken ct) =>

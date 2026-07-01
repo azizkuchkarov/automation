@@ -249,6 +249,133 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.ToTable("document_activities", (string)null);
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveApprover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ApprovalGroup")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("hr_leave_approvers", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", b =>
+                {
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("HrDepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("HrReviewCompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("HrTaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PeriodLabel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime>("RequestDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Track")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("DocumentId");
+
+                    b.HasIndex("HrDepartmentId");
+
+                    b.ToTable("hr_leave_request_details", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveRequestItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DateFrom")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("DateTo")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("DaysCount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("NoteEn")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("NoteRu")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("hr_leave_request_items", (string)null);
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.IncomingLetterComment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1465,6 +1592,53 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.UserNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsRead", "CreatedAt");
+
+                    b.ToTable("user_notifications", (string)null);
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.WorkTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1625,6 +1799,55 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Actor");
 
                     b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveApprover", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", "Request")
+                        .WithMany("Approvers")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.Document", "Document")
+                        .WithOne()
+                        .HasForeignKey("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", "DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.Department", "HrDepartment")
+                        .WithMany()
+                        .HasForeignKey("HrDepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Document");
+
+                    b.Navigation("HrDepartment");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveRequestItem", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", "Request")
+                        .WithMany("Items")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Request");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.IncomingLetterComment", b =>
@@ -2022,6 +2245,17 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Position");
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.UserNotification", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.WorkTask", b =>
                 {
                     b.HasOne("ATG.Platform.Domain.Entities.User", "Assignee")
@@ -2067,6 +2301,13 @@ namespace ATG.Platform.Infrastructure.Migrations
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Document", b =>
                 {
                     b.Navigation("Activities");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", b =>
+                {
+                    b.Navigation("Approvers");
+
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.IncomingLetterDetail", b =>

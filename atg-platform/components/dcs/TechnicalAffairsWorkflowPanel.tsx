@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CheckCircle2, Circle } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { CheckCircle2, Circle, XCircle } from "lucide-react";
 import type { useTranslations } from "next-intl";
 import {
   ProcurementAttachmentKind,
@@ -26,13 +26,14 @@ interface Props {
   t: ReturnType<typeof useTranslations>;
   acting: boolean;
   documentId: string;
-  step9Approvers: ApproverRow[];
-  setStep9Approvers: (v: ApproverRow[]) => void;
-  step9Attachments: AttachmentRow[];
-  setStep9Attachments: (v: AttachmentRow[]) => void;
+  step6Approvers: ApproverRow[];
+  setStep6Approvers: (v: ApproverRow[]) => void;
+  step6Attachments: AttachmentRow[];
+  setStep6Attachments: (v: AttachmentRow[]) => void;
   assignable: { id: string; fullName: string }[];
   onCompleteStep: (step: number, comment: string) => void;
-  onSubmitStep9: () => void;
+  onSubmitStep6: () => void;
+  onRejectTas: (comment: string) => void;
 }
 
 export function TechnicalAffairsWorkflowPanel({
@@ -41,13 +42,14 @@ export function TechnicalAffairsWorkflowPanel({
   t,
   acting,
   documentId,
-  step9Approvers,
-  setStep9Approvers,
-  step9Attachments,
-  setStep9Attachments,
+  step6Approvers,
+  setStep6Approvers,
+  step6Attachments,
+  setStep6Attachments,
   assignable,
   onCompleteStep,
-  onSubmitStep9,
+  onSubmitStep6,
+  onRejectTas,
 }: Props) {
   const inputClass = cn(
     "w-full rounded-xl border border-border/70 bg-background px-3 py-2.5 text-sm",
@@ -57,8 +59,12 @@ export function TechnicalAffairsWorkflowPanel({
   const totalSteps = req.steps.length;
   const comments: ProcurementStepComment[] = req.stepComments ?? [];
   const progress = Math.round(((current - 1) / Math.max(totalSteps - 1, 1)) * 100);
+  const rejected = req.status === "Rejected";
 
   const [viewStep, setViewStep] = useState(current);
+  const [rejectComment, setRejectComment] = useState("");
+  const [showRejectForm, setShowRejectForm] = useState(false);
+
   useEffect(() => {
     setViewStep(current);
   }, [current]);
@@ -67,8 +73,8 @@ export function TechnicalAffairsWorkflowPanel({
   if (!step) return null;
 
   const done = step.number < current;
-  const active = step.number === current;
-  const isStep9 = step.number === 9;
+  const active = step.number === current && !rejected;
+  const isStep6 = step.number === 6;
 
   return (
     <section className="rounded-2xl border border-sky-500/20 bg-surface shadow-sm overflow-hidden">
@@ -99,6 +105,12 @@ export function TechnicalAffairsWorkflowPanel({
         </div>
       </div>
 
+      {rejected && (
+        <div className="mx-4 mt-4 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-700 dark:text-red-400">
+          {t("tasRejectedBanner")}
+        </div>
+      )}
+
       <div className="p-4">
         <div
           className={cn(
@@ -111,6 +123,8 @@ export function TechnicalAffairsWorkflowPanel({
             <div className="flex gap-3">
               {done ? (
                 <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5" />
+              ) : rejected && step.number === current ? (
+                <XCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
               ) : (
                 <Circle
                   size={20}
@@ -123,7 +137,7 @@ export function TechnicalAffairsWorkflowPanel({
                 </p>
                 <p className="text-sm font-semibold text-foreground">{stepTitle(step, locale)}</p>
 
-                {active && !isStep9 && (
+                {active && !isStep6 && (
                   <StepCommentThread
                     comments={comments}
                     phase="TechnicalAffairs"
@@ -136,22 +150,48 @@ export function TechnicalAffairsWorkflowPanel({
                       disabled: acting,
                       onComplete: (body) => onCompleteStep(step.number, body),
                     }}
+                    completeActionsPrefix={
+                      <TasRejectBlock
+                        t={t}
+                        acting={acting}
+                        rejectComment={rejectComment}
+                        setRejectComment={setRejectComment}
+                        showRejectForm={showRejectForm}
+                        setShowRejectForm={setShowRejectForm}
+                        onReject={onRejectTas}
+                        inline
+                      />
+                    }
                   />
                 )}
 
-                {active && isStep9 && (
-                  <Step9Block
-                    documentId={documentId}
-                    approvers={step9Approvers}
-                    setApprovers={setStep9Approvers}
-                    attachments={step9Attachments}
-                    setAttachments={setStep9Attachments}
-                    assignable={assignable}
-                    acting={acting}
-                    onSubmit={onSubmitStep9}
-                    t={t}
-                    inputClass={inputClass}
-                  />
+                {active && isStep6 && (
+                  <>
+                    <Step6Block
+                      documentId={documentId}
+                      approvers={step6Approvers}
+                      setApprovers={setStep6Approvers}
+                      attachments={step6Attachments}
+                      setAttachments={setStep6Attachments}
+                      assignable={assignable}
+                      acting={acting}
+                      onSubmit={onSubmitStep6}
+                      t={t}
+                      inputClass={inputClass}
+                      rejectSlot={
+                        <TasRejectBlock
+                          t={t}
+                          acting={acting}
+                          rejectComment={rejectComment}
+                          setRejectComment={setRejectComment}
+                          showRejectForm={showRejectForm}
+                          setShowRejectForm={setShowRejectForm}
+                          onReject={onRejectTas}
+                          inline
+                        />
+                      }
+                    />
+                  </>
                 )}
 
                 {!active && (
@@ -186,7 +226,72 @@ export function TechnicalAffairsWorkflowPanel({
   );
 }
 
-function Step9Block({
+function TasRejectBlock({
+  t,
+  acting,
+  rejectComment,
+  setRejectComment,
+  showRejectForm,
+  setShowRejectForm,
+  onReject,
+  inline = false,
+}: {
+  t: ReturnType<typeof useTranslations>;
+  acting: boolean;
+  rejectComment: string;
+  setRejectComment: (v: string) => void;
+  showRejectForm: boolean;
+  setShowRejectForm: (v: boolean) => void;
+  onReject: (comment: string) => void;
+  inline?: boolean;
+}) {
+  if (showRejectForm) {
+    return (
+      <div
+        className={cn(
+          "space-y-2 rounded-xl border border-red-500/25 bg-red-500/5 p-3",
+          inline ? "w-full" : "mt-4 pt-4 border-t border-border/50"
+        )}
+      >
+        <p className="text-xs font-medium text-foreground/70">{t("rejectTasHint")}</p>
+        <textarea
+          className="w-full rounded-xl border border-border/70 bg-background px-3 py-2.5 text-sm min-h-[72px]"
+          placeholder={t("rejectReasonPlaceholder")}
+          value={rejectComment}
+          onChange={(e) => setRejectComment(e.target.value)}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={acting || !rejectComment.trim()}
+            onClick={() => onReject(rejectComment.trim())}
+          >
+            {t("confirmReject")}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={acting} onClick={() => setShowRejectForm(false)}>
+            {t("cancel")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={acting}
+      onClick={() => setShowRejectForm(true)}
+      className="text-red-600 border-red-500/25 hover:bg-red-500/5"
+    >
+      <XCircle size={14} className="mr-1.5" />
+      {t("rejectTas")}
+    </Button>
+  );
+}
+
+function Step6Block({
   documentId,
   approvers,
   setApprovers,
@@ -197,6 +302,7 @@ function Step9Block({
   onSubmit,
   t,
   inputClass,
+  rejectSlot,
 }: {
   documentId: string;
   approvers: ApproverRow[];
@@ -208,10 +314,11 @@ function Step9Block({
   onSubmit: () => void;
   t: ReturnType<typeof useTranslations>;
   inputClass: string;
+  rejectSlot?: ReactNode;
 }) {
   return (
     <div className="mt-4 p-4 rounded-xl border border-sky-500/20 bg-sky-500/5 space-y-3">
-      <p className="text-xs font-semibold text-foreground/70">{t("step9Hint")}</p>
+      <p className="text-xs font-semibold text-foreground/70">{t("step6Hint")}</p>
       {attachments.map((a, i) => (
         <div key={i} className="flex gap-2 items-start flex-wrap">
           <select
@@ -264,9 +371,12 @@ function Step9Block({
           </select>
         </div>
       ))}
-      <Button size="sm" disabled={acting} onClick={onSubmit}>
-        {t("submitApproval")}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {rejectSlot}
+        <Button size="sm" disabled={acting} onClick={onSubmit}>
+          {t("submitApproval")}
+        </Button>
+      </div>
     </div>
   );
 }

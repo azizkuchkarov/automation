@@ -20,7 +20,7 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} data-theme="dark">
+    <html lang={locale}>
       <body className={`${inter.variable} antialiased min-h-screen`}>
         <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
       </body>

@@ -103,6 +103,7 @@ public interface IProcurementRequestService
     Task<Result<ProcurementRequestDto>> CreateExpressAsync(CreateExpressProcurementRequest request, Guid actorId, string? ip, CancellationToken ct = default);
     Task<Result<ProcurementRequestDto>> CompleteStepAsync(Guid id, int step, CompleteProcurementStepRequest? request, Guid actorId, string? ip, CancellationToken ct = default);
     Task<Result<ProcurementRequestDto>> SubmitStep9Async(Guid id, SubmitStep9Request request, Guid actorId, string? ip, CancellationToken ct = default);
+    Task<Result<ProcurementRequestDto>> RejectTasAsync(Guid id, CompleteProcurementStepRequest request, Guid actorId, string? ip, CancellationToken ct = default);
     Task<Result<ProcurementRequestDto>> ApproveAsync(Guid id, ProcurementApprovalRequest request, Guid actorId, string? ip, CancellationToken ct = default);
     Task<Result<ProcurementRequestDto>> RejectAsync(Guid id, ProcurementApprovalRequest request, Guid actorId, string? ip, CancellationToken ct = default);
     Task<Result<ProcurementRequestDto>> ForwardToContractsAsync(Guid id, Guid actorId, string? ip, CancellationToken ct = default);
@@ -172,6 +173,19 @@ public interface IIncomingLetterService
     Task<Result<IncomingLetterDto>> AssignWorkerAsync(Guid id, AssignIncomingLetterRequest request, Guid actorId, string? ip, CancellationToken ct = default);
     Task<Result<IncomingLetterDto>> CompleteAsync(Guid id, Guid actorId, string? ip, CancellationToken ct = default);
     Task<Result<IncomingLetterCommentDto>> AddCommentAsync(Guid id, IncomingLetterCommentRequest request, Guid actorId, CancellationToken ct = default);
+}
+
+public interface IHrLeaveRequestService
+{
+    Task<Result<IReadOnlyList<HrLeaveListItemDto>>> GetMyRequestsAsync(Guid actorId, CancellationToken ct = default);
+    Task<Result<IReadOnlyList<HrLeaveListItemDto>>> GetHrQueueAsync(Guid actorId, CancellationToken ct = default);
+    Task<Result<HrLeaveRequestDto>> GetByIdAsync(Guid id, Guid actorId, CancellationToken ct = default);
+    Task<Result<HrLeaveRequestDto>> CreateAsync(CreateHrLeaveRequestRequest request, Guid actorId, string? ip, CancellationToken ct = default);
+    Task<Result<HrLeaveRequestDto>> UpdateAsync(Guid id, UpdateHrLeaveRequestRequest request, Guid actorId, string? ip, CancellationToken ct = default);
+    Task<Result<HrLeaveRequestDto>> SubmitAsync(Guid id, Guid actorId, string? ip, CancellationToken ct = default);
+    Task<Result<HrLeaveRequestDto>> HrReviewAsync(Guid id, HrLeaveApprovalRequest request, Guid actorId, string? ip, CancellationToken ct = default);
+    Task<Result<HrLeaveRequestDto>> ApproveAsync(Guid id, HrLeaveApprovalRequest request, Guid actorId, string? ip, CancellationToken ct = default);
+    Task<Result<HrLeaveRequestDto>> RejectAsync(Guid id, HrLeaveApprovalRequest request, Guid actorId, string? ip, CancellationToken ct = default);
 }
 
 public interface ITaskService

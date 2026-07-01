@@ -63,12 +63,12 @@ export function ProcurementRequestView({ documentId }: Props) {
   const [actionError, setActionError] = useState("");
   const [tab, setTab] = useState<Tab>("overview");
   const [assignable, setAssignable] = useState<{ id: string; fullName: string }[]>([]);
-  const [step9Approvers, setStep9Approvers] = useState<ApproverRow[]>([
+  const [step6Approvers, setStep6Approvers] = useState<ApproverRow[]>([
     { userId: "", role: "Initiator" },
     { userId: "", role: "TasManager" },
     { userId: "", role: "BmgmcTopManager" },
   ]);
-  const [step9Attachments, setStep9Attachments] = useState<AttachmentRow[]>([
+  const [step6Attachments, setStep6Attachments] = useState<AttachmentRow[]>([
     { kind: "TechnicalAssignment", fileName: "" },
     { kind: "MaterialRequisition", fileName: "" },
   ]);
@@ -149,10 +149,12 @@ export function ProcurementRequestView({ documentId }: Props) {
       api
         .post(`/dcs/procurement-requests/${documentId}/steps/${step}/complete`, { comment })
     );
-  const submitStep9 = () => runAction(() => api.post(`/dcs/procurement-requests/${documentId}/step9/submit`, {
-    approvers: step9Approvers.filter((a) => a.userId),
-    attachments: step9Attachments.filter((a) => a.fileName.trim() && a.storageKey),
+  const submitStep6 = () => runAction(() => api.post(`/dcs/procurement-requests/${documentId}/step6/submit`, {
+    approvers: step6Approvers.filter((a) => a.userId),
+    attachments: step6Attachments.filter((a) => a.fileName.trim() && a.storageKey),
   }));
+  const rejectTas = (comment: string) =>
+    runAction(() => api.post(`/dcs/procurement-requests/${documentId}/tas/reject`, { comment }));
   const approve = (comment: string) =>
     runAction(() => api.post(`/dcs/procurement-requests/${documentId}/approve`, { comment: comment || null }));
   const reject = (comment: string) =>
@@ -404,13 +406,14 @@ export function ProcurementRequestView({ documentId }: Props) {
               onAssignContracts={assignContracts}
               onAcceptContracts={acceptContracts}
               documentId={documentId}
-              step9Approvers={step9Approvers}
-              setStep9Approvers={setStep9Approvers}
-              step9Attachments={step9Attachments}
-              setStep9Attachments={setStep9Attachments}
+              step6Approvers={step6Approvers}
+              setStep6Approvers={setStep6Approvers}
+              step6Attachments={step6Attachments}
+              setStep6Attachments={setStep6Attachments}
               assignable={assignable}
               onCompleteStep={completeStep}
-              onSubmitStep9={submitStep9}
+              onSubmitStep6={submitStep6}
+              onRejectTas={rejectTas}
             />
           )}
           {tab === "registration" && <RegistrationTab req={req} locale={locale} t={t} />}
@@ -491,9 +494,9 @@ function OverviewTab({
   marketingPerms, contractsPerms, marketingWorkers, contractsWorkers,
   selectedSpecialist, setSelectedSpecialist, selectedEngineer, setSelectedEngineer,
   marketingComment, setMarketingComment, contractsComment, setContractsComment,
-  step9Approvers, setStep9Approvers, step9Attachments, setStep9Attachments, assignable,
+  step6Approvers, setStep6Approvers, step6Attachments, setStep6Attachments, assignable,
   documentId,
-  onCompleteStep, onSubmitStep9,
+  onCompleteStep, onSubmitStep6, onRejectTas,
   onCompleteMarketingStep, onRecordMarketingBranch,
   onSubmitPlanApproval, onApprovePlan, onRejectPlan, onConfirmRegistration,
   onAssign, onAccept, onAssignContracts, onAcceptContracts,
@@ -515,14 +518,15 @@ function OverviewTab({
   setMarketingComment: (v: string) => void;
   contractsComment: string;
   setContractsComment: (v: string) => void;
-  step9Approvers: ApproverRow[];
-  setStep9Approvers: (v: ApproverRow[]) => void;
-  step9Attachments: AttachmentRow[];
-  setStep9Attachments: (v: AttachmentRow[]) => void;
+  step6Approvers: ApproverRow[];
+  setStep6Approvers: (v: ApproverRow[]) => void;
+  step6Attachments: AttachmentRow[];
+  setStep6Attachments: (v: AttachmentRow[]) => void;
   assignable: { id: string; fullName: string }[];
   documentId: string;
   onCompleteStep: (s: number, comment: string) => void;
-  onSubmitStep9: () => void;
+  onSubmitStep6: () => void;
+  onRejectTas: (comment: string) => void;
   onCompleteMarketingStep: (step: number, comment?: string) => void;
   onRecordMarketingBranch: (branch: MarketingBranchType, resolve: boolean) => void;
   onSubmitPlanApproval: (approvers: { userId: string; role: string }[]) => void;
@@ -547,13 +551,14 @@ function OverviewTab({
             t={t}
             acting={acting}
             documentId={documentId}
-            step9Approvers={step9Approvers}
-            setStep9Approvers={setStep9Approvers}
-            step9Attachments={step9Attachments}
-            setStep9Attachments={setStep9Attachments}
+            step6Approvers={step6Approvers}
+            setStep6Approvers={setStep6Approvers}
+            step6Attachments={step6Attachments}
+            setStep6Attachments={setStep6Attachments}
             assignable={assignable}
             onCompleteStep={onCompleteStep}
-            onSubmitStep9={onSubmitStep9}
+            onSubmitStep6={onSubmitStep6}
+            onRejectTas={onRejectTas}
           />
         )}
 

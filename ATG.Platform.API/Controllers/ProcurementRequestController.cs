@@ -77,6 +77,20 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("{id:guid}/step6/submit")]
+    public async Task<IActionResult> SubmitStep6(Guid id, [FromBody] SubmitStep9Request request, CancellationToken ct)
+    {
+        var result = await requests.SubmitStep9Async(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/tas/reject")]
+    public async Task<IActionResult> RejectTas(Guid id, [FromBody] CompleteProcurementStepRequest request, CancellationToken ct)
+    {
+        var result = await requests.RejectTasAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id, [FromBody] ProcurementApprovalRequest request, CancellationToken ct)
     {

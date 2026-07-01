@@ -1,13 +1,9 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0d1117;
-  --foreground: #e6edf3;
-  --surface: #161b22;
-  --border: #30363d;
-}
+/* Light theme only — dark mode disabled */
+@custom-variant dark (&:is(.dark *));
 
-[data-theme="light"] {
+:root {
   --background: #eef2f7;
   --foreground: #0f172a;
   --surface: #ffffff;
@@ -23,7 +19,7 @@
   --color-atg-teal: #0d9488;
   --color-atg-amber: #d97706;
   --color-atg-purple: #7c3aed;
-  --color-atg-dark: #0d1117;
+  --color-atg-dark: #0f172a;
   --font-sans: var(--font-inter);
 }
 

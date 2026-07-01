@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import {
   Building2,
   CheckCircle2,
+  ChevronDown,
   Megaphone,
   Scale,
   Wrench,
@@ -74,10 +76,93 @@ const PROCESS_ORDER: SectionKey[] = [
   "contracts",
 ];
 
+const DEFAULT_EXPANDED: Partial<Record<SectionKey, boolean>> = {
+  technicalAffairs: false,
+  marketing: false,
+};
+
 interface Props {
   req: ProcurementRequest;
   locale: string;
   t: ReturnType<typeof useTranslations>;
+}
+
+function isSectionVisible(
+  key: SectionKey,
+  ctx: {
+    registrationEvents: MonitoringActivity[];
+    isTas: boolean;
+    hasApprovers: boolean;
+    req: ProcurementRequest;
+    sortedApprovers: ProcurementRequest["approvers"];
+    marketingSteps: MonitoringStepItem[];
+    contractEvents: MonitoringActivity[];
+  }
+): boolean {
+  const { registrationEvents, isTas, hasApprovers, req, sortedApprovers, marketingSteps, contractEvents } = ctx;
+  switch (key) {
+    case "registration":
+      return registrationEvents.length > 0 || Boolean(req.registeredAt);
+    case "technicalAffairs":
+      return isTas;
+    case "approval":
+      return hasApprovers || req.phase === "AwaitingApproval" || sortedApprovers.length > 0;
+    case "marketing":
+      return (
+        req.phase === "Marketing" ||
+        req.phase === "Contracts" ||
+        req.phase === "Completed" ||
+        marketingSteps.some((s) => s.activities.length > 0)
+      );
+    case "contracts":
+      return contractEvents.length > 0 || req.phase === "Contracts" || req.phase === "Completed";
+    default:
+      return false;
+  }
+}
+
+function sectionSummary(
+  key: SectionKey,
+  ctx: {
+    taSteps: MonitoringStepItem[];
+    marketingSteps: MonitoringStepItem[];
+    registrationEvents: MonitoringActivity[];
+    contractEvents: MonitoringActivity[];
+    sortedApprovers: ProcurementRequest["approvers"];
+    req: ProcurementRequest;
+  },
+  t: ReturnType<typeof useTranslations>
+): string | null {
+  const { taSteps, marketingSteps, registrationEvents, contractEvents, sortedApprovers, req } = ctx;
+  switch (key) {
+    case "technicalAffairs": {
+      const total = taSteps.length;
+      const done = taSteps.filter((s) => s.status === "completed").length;
+      const active = taSteps.find((s) => s.status === "active");
+      if (active) return `${t("monitoring.statusActive")}: ${t("step")} ${active.number}`;
+      return `${done} / ${total}`;
+    }
+    case "marketing": {
+      const total = marketingSteps.length;
+      const done = marketingSteps.filter((s) => s.status === "completed").length;
+      const active = marketingSteps.find((s) => s.status === "active");
+      if (active) return `${t("monitoring.statusActive")}: ${t("step")} ${active.number}`;
+      if (done === 0 && req.phase === "Marketing") return t("monitoring.statusActive");
+      return `${done} / ${total}`;
+    }
+    case "approval": {
+      const decided = sortedApprovers.filter((a) => a.status !== "Pending").length;
+      const total = sortedApprovers.length;
+      if (total === 0) return null;
+      return `${decided} / ${total}`;
+    }
+    case "registration":
+      return registrationEvents.length > 0 || req.registeredAt ? t("monitoring.statusCompleted") : null;
+    case "contracts":
+      return contractEvents.length > 0 ? `${contractEvents.length}` : null;
+    default:
+      return null;
+  }
 }
 
 export function ProcurementMonitoringView({ req, locale, t }: Props) {
@@ -96,6 +181,27 @@ export function ProcurementMonitoringView({ req, locale, t }: Props) {
     req.timeline.some((e) =>
       ["submitted_for_approval", "approved", "rejected"].includes(e.action)
     );
+
+  const sectionCtx = {
+    registrationEvents,
+    isTas,
+    hasApprovers,
+    req,
+    sortedApprovers,
+    marketingSteps,
+    contractEvents,
+  };
+
+  const [expanded, setExpanded] = useState<Record<SectionKey, boolean>>(() => {
+    const initial = {} as Record<SectionKey, boolean>;
+    for (const key of PROCESS_ORDER) {
+      initial[key] = DEFAULT_EXPANDED[key] ?? true;
+    }
+    return initial;
+  });
+
+  const toggleSection = (key: SectionKey) =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const hasAny =
     registrationEvents.length > 0 ||
@@ -125,58 +231,64 @@ export function ProcurementMonitoringView({ req, locale, t }: Props) {
     return map[key];
   };
 
-  const sectionVisible = (key: SectionKey): boolean => {
-    switch (key) {
-      case "registration":
-        return registrationEvents.length > 0 || Boolean(req.registeredAt);
-      case "technicalAffairs":
-        return isTas;
-      case "approval":
-        return hasApprovers || req.phase === "AwaitingApproval" || sortedApprovers.length > 0;
-      case "marketing":
-        return (
-          req.phase === "Marketing" ||
-          req.phase === "Contracts" ||
-          req.phase === "Completed" ||
-          marketingSteps.some((s) => s.activities.length > 0)
-        );
-      case "contracts":
-        return contractEvents.length > 0 || req.phase === "Contracts" || req.phase === "Completed";
-      default:
-        return false;
-    }
-  };
-
   return (
     <div className="space-y-5 max-w-5xl">
       <p className="text-sm text-foreground/55">{t("monitoring.hint")}</p>
 
-      {PROCESS_ORDER.filter(sectionVisible).map((key) => {
+      {PROCESS_ORDER.filter((key) => isSectionVisible(key, sectionCtx)).map((key) => {
         const meta = SECTION_META[key];
         const Icon = meta.icon;
+        const isOpen = expanded[key];
+        const summary = sectionSummary(
+          key,
+          { taSteps, marketingSteps, registrationEvents, contractEvents, sortedApprovers, req },
+          t
+        );
 
         return (
           <section
             key={key}
             className={cn("rounded-2xl border bg-surface shadow-sm overflow-hidden", meta.border)}
           >
-            <div
+            <button
+              type="button"
+              onClick={() => toggleSection(key)}
               className={cn(
-                "px-5 py-4 border-b border-border/40 bg-gradient-to-r to-transparent",
+                "w-full px-5 py-4 text-left bg-gradient-to-r to-transparent transition-colors",
+                "hover:bg-foreground/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30",
+                isOpen ? "border-b border-border/40" : "",
                 meta.accent
               )}
+              aria-expanded={isOpen}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-background/80 border border-border/50 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-background/80 border border-border/50 flex items-center justify-center shrink-0">
                   <Icon size={18} className="text-foreground/60" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold">{sectionTitle(key)}</h3>
-                  <p className="text-xs text-foreground/45">{t("monitoring.pipelineHint")}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold">{sectionTitle(key)}</h3>
+                    {summary && !isOpen && (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-foreground/[0.06] text-foreground/50">
+                        {summary}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-foreground/45">
+                    {isOpen ? t("monitoring.pipelineHint") : t("monitoring.clickToExpand")}
+                  </p>
                 </div>
+                <ChevronDown
+                  size={18}
+                  className={cn(
+                    "text-foreground/40 shrink-0 transition-transform duration-200",
+                    isOpen && "rotate-180"
+                  )}
+                />
               </div>
-            </div>
+            </button>
 
+            {isOpen && (
             <div className="p-5">
               {key === "registration" && (
                 <MonitoringMilestoneList items={registrationEvents} locale={locale} />
@@ -232,6 +344,7 @@ export function ProcurementMonitoringView({ req, locale, t }: Props) {
                 <MonitoringMilestoneList items={contractEvents} locale={locale} />
               )}
             </div>
+            )}
           </section>
         );
       })}
@@ -262,7 +375,7 @@ function commentToActivity(c: ProcurementStepComment, locale: string): Monitorin
     body: c.body,
     at: c.createdAt,
     variant:
-      c.kind === "StepCompletion" || c.kind === "Acceptance"
+      c.kind === "StepCompletion" || c.kind === "Acceptance" || c.kind === "Assignment"
         ? "success"
         : c.kind === "Branch"
           ? "warning"
@@ -270,11 +383,52 @@ function commentToActivity(c: ProcurementStepComment, locale: string): Monitorin
   };
 }
 
+function hasStepComment(
+  comments: ProcurementStepComment[],
+  stepNumber: number,
+  kind: ProcurementStepComment["kind"]
+): boolean {
+  return comments.some((c) => c.stepNumber === stepNumber && c.kind === kind);
+}
+
+/** Skip timeline rows when an equivalent step comment already exists (avoids duplicates in Monitoring). */
+function shouldSkipMarketingTimelineEvent(
+  action: string,
+  comments: ProcurementStepComment[]
+): boolean {
+  if (action === "marketing_assigned") {
+    return hasStepComment(comments, 1, "Assignment");
+  }
+  if (action === "marketing_accepted") {
+    return hasStepComment(comments, 1, "Acceptance");
+  }
+  const stepMatch = action.match(/^marketing_step_(\d+)_completed$/);
+  if (stepMatch) {
+    const step = parseInt(stepMatch[1], 10);
+    return hasStepComment(comments, step, "StepCompletion");
+  }
+  return false;
+}
+
 function getTaStepStatus(stepNum: number, req: ProcurementRequest): MonitoringStepStatus {
   if (req.flow !== "TechnicalAffairs") return "skipped";
-  if (req.phase !== "InProgress") {
-    return stepNum <= 9 ? "completed" : "pending";
+
+  const totalSteps = req.steps.length;
+  const tasFinished =
+    req.phase === "Marketing" ||
+    req.phase === "Contracts" ||
+    req.phase === "Completed";
+
+  if (tasFinished) return "completed";
+
+  if (req.phase === "AwaitingApproval") {
+    return stepNum <= 6 ? "completed" : "pending";
   }
+
+  if (req.phase !== "InProgress") {
+    return stepNum <= totalSteps ? "completed" : "pending";
+  }
+
   if (stepNum < req.currentStep) return "completed";
   if (stepNum === req.currentStep) return "active";
   return "pending";
@@ -288,6 +442,7 @@ function buildTaSteps(req: ProcurementRequest, locale: string): MonitoringStepIt
 
   const createdEvent = req.timeline.find((e) => e.action === "created");
   const submittedEvent = req.timeline.find((e) => e.action === "submitted_for_approval");
+  const handoffEvent = req.timeline.find((e) => e.action === "handoff_marketing");
 
   return req.steps.map((step) => {
     const activities: MonitoringActivity[] = [];
@@ -314,8 +469,12 @@ function buildTaSteps(req: ProcurementRequest, locale: string): MonitoringStepIt
       activities.push(timelineToActivity(stepEvent, locale));
     }
 
-    if (step.number === 9 && submittedEvent) {
+    if (step.number === 6 && submittedEvent) {
       activities.push(timelineToActivity(submittedEvent, locale));
+    }
+
+    if (step.number === 7 && handoffEvent) {
+      activities.push(timelineToActivity(handoffEvent, locale));
     }
 
     activities.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
@@ -380,6 +539,7 @@ function buildMarketingSteps(req: ProcurementRequest, locale: string): Monitorin
     for (const ev of marketingEvents) {
       const evStep = marketingEventStep(ev.action);
       if (evStep === step.number && ev.action !== "handoff_marketing") {
+        if (shouldSkipMarketingTimelineEvent(ev.action, comments)) continue;
         const act = timelineToActivity(ev, locale);
         if (!activities.some((a) => a.id === act.id)) {
           activities.push(act);

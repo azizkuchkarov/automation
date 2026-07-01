@@ -33,6 +33,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MarketingProcurementPlan> MarketingProcurementPlans => Set<MarketingProcurementPlan>();
     public DbSet<MarketingPortalApproval> MarketingPortalApprovals => Set<MarketingPortalApproval>();
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<HrLeaveRequestDetail> HrLeaveRequestDetails => Set<HrLeaveRequestDetail>();
+    public DbSet<HrLeaveRequestItem> HrLeaveRequestItems => Set<HrLeaveRequestItem>();
+    public DbSet<HrLeaveApprover> HrLeaveApprovers => Set<HrLeaveApprover>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -385,6 +388,40 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Body).HasMaxLength(4000);
             e.HasOne(x => x.Letter).WithMany(x => x.Comments).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Author).WithMany().HasForeignKey(x => x.AuthorId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<HrLeaveRequestDetail>(e =>
+        {
+            e.ToTable("hr_leave_request_details");
+            e.HasKey(x => x.DocumentId);
+            e.Property(x => x.Phase).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Track).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.PeriodLabel).HasMaxLength(20);
+            e.HasOne(x => x.Document).WithOne().HasForeignKey<HrLeaveRequestDetail>(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.HrDepartment).WithMany().HasForeignKey(x => x.HrDepartmentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<HrLeaveRequestItem>(e =>
+        {
+            e.ToTable("hr_leave_request_items");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.DocumentId);
+            e.Property(x => x.Type).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.NoteRu).HasMaxLength(1000);
+            e.Property(x => x.NoteEn).HasMaxLength(1000);
+            e.HasOne(x => x.Request).WithMany(x => x.Items).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HrLeaveApprover>(e =>
+        {
+            e.ToTable("hr_leave_approvers");
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.DocumentId);
+            e.Property(x => x.Role).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Comment).HasMaxLength(2000);
+            e.HasOne(x => x.Request).WithMany(x => x.Approvers).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<UserNotification>(e =>

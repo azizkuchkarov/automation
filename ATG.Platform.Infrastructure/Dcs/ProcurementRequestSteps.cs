@@ -6,7 +6,7 @@ public static class ProcurementRequestSteps
 
 {
 
-    public const int TotalSteps = 10;
+    public const int TotalSteps = 7;
 
 
 
@@ -40,35 +40,17 @@ public static class ProcurementRequestSteps
 
         new(5,
 
-            "Проверка наличия требуемой продукции в электронном магазине и возможности ее приобретения через электронные торговые площадки.",
-
-            "Check e-shop availability and electronic trading platform procurement options."),
-
-        new(6,
-
             "Проверка наличия выделенного бюджета, соответствия статьи затрат и финансового обеспечения закупки.",
 
             "Verify allocated budget, cost article alignment and financial coverage."),
 
-        new(7,
-
-            "Разработка технического задания с учетом технических, нормативных, эксплуатационных и производственных требований.",
-
-            "Develop technical assignment per technical, regulatory and operational requirements."),
-
-        new(8,
-
-            "Инициирование и согласование технического задания с руководителем подразделения и профильными специалистами.",
-
-            "Initiate and coordinate TA approval with department head and specialists."),
-
-        new(9,
+        new(6,
 
             "Инициирование и согласование листа запроса материалов (ЛЗМ) / листа запроса услуг (ЛЗУ) с руководством и профильными специалистами.",
 
             "Initiate and coordinate MR/SR approval with management and specialists."),
 
-        new(10,
+        new(7,
 
             "Передача согласованного пакета документов для дальнейшего проведения закупочной процедуры в установленном порядке.",
 
@@ -81,5 +63,4 @@ public static class ProcurementRequestSteps
 
 
 public record ProcurementStepDefinition(int Number, string TitleRu, string TitleEn);
-
 

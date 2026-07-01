@@ -289,7 +289,48 @@ public class TaskService(AppDbContext db, IAuditService audit, IMarketingRfqChan
             .Select(UnifiedTaskItem.FromTicket)
             .Where(t => t is not null)!);
 
-        return unified;
+        return await EnrichProcurementDcsStatusesAsync(unified, ct);
+    }
+
+    private async Task<List<UnifiedTaskItem>> EnrichProcurementDcsStatusesAsync(
+        List<UnifiedTaskItem> items,
+        CancellationToken ct)
+    {
+        var dcsTaskIds = items
+            .Where(i => i.Source == TaskSource.DCS)
+            .Select(i => i.Id)
+            .ToHashSet();
+        if (dcsTaskIds.Count == 0)
+            return items;
+
+        var details = await db.ProcurementRequestDetails
+            .AsNoTracking()
+            .Include(d => d.Document)
+            .Where(d =>
+                (d.ResponsibleTaskId != null && dcsTaskIds.Contains(d.ResponsibleTaskId.Value))
+                || (d.MarketingTaskId != null && dcsTaskIds.Contains(d.MarketingTaskId.Value))
+                || (d.ContractsTaskId != null && dcsTaskIds.Contains(d.ContractsTaskId.Value)))
+            .ToListAsync(ct);
+
+        if (details.Count == 0)
+            return items;
+
+        var derivedByTaskId = new Dictionary<Guid, DcsWorkTaskStatusResolver.ResolvedStatus>();
+        foreach (var detail in details)
+        {
+            if (detail.ResponsibleTaskId is Guid responsibleId && dcsTaskIds.Contains(responsibleId))
+                derivedByTaskId[responsibleId] = DcsWorkTaskStatusResolver.ResolveResponsible(detail);
+            if (detail.MarketingTaskId is Guid marketingId && dcsTaskIds.Contains(marketingId))
+                derivedByTaskId[marketingId] = DcsWorkTaskStatusResolver.ResolveMarketing(detail);
+            if (detail.ContractsTaskId is Guid contractsId && dcsTaskIds.Contains(contractsId))
+                derivedByTaskId[contractsId] = DcsWorkTaskStatusResolver.ResolveContracts(detail);
+        }
+
+        return items
+            .Select(i => derivedByTaskId.TryGetValue(i.Id, out var derived)
+                ? i.WithDerivedStatus(derived)
+                : i)
+            .ToList();
     }
 
     private IQueryable<WorkTask> GetScopedWorkTasksQuery(User actor, Guid? organizationId, Guid? departmentId)

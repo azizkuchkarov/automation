@@ -835,6 +835,8 @@ export function timelineActionLabel(action: string, locale: string) {
 
     step_completed: "Шаг выполнен",
 
+    tas_rejected: "Заявка отклонена (TAS)",
+
     submitted_for_approval: "Отправлено на согласование",
 
     approved: "Согласовано",
@@ -890,6 +892,8 @@ export function timelineActionLabel(action: string, locale: string) {
     created: "Created",
 
     step_completed: "Step completed",
+
+    tas_rejected: "Request rejected (TAS)",
 
     submitted_for_approval: "Submitted for approval",
 

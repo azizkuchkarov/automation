@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<MarketingRfqChannelService>();
         services.AddScoped<IMarketingRfqChannelService>(sp => sp.GetRequiredService<MarketingRfqChannelService>());
         services.AddScoped<IIncomingLetterService, IncomingLetterService>();
+        services.AddScoped<IHrLeaveRequestService, HrLeaveRequestService>();
         services.AddScoped<ITaskService, TaskService>();
         services.AddScoped<ILdapService, LdapService>();
         services.AddSingleton<IJwtService, JwtService>();

@@ -81,7 +81,7 @@ export function ProcurementPhaseOverview({ req, locale, isTas }: Props) {
 
   const taDone = req.phase !== "InProgress" && req.phase !== "AwaitingApproval"
     ? (isTas ? 100 : req.phase === "Marketing" || req.phase === "Contracts" || req.phase === "Completed" ? 100 : 0)
-    : req.phase === "AwaitingApproval" ? 90 : Math.round(((req.currentStep - 1) / 9) * 100);
+    : req.phase === "AwaitingApproval" ? 90 : Math.round(((req.currentStep - 1) / Math.max(req.steps.length - 1, 1)) * 100);
 
   const expressInitiationDone =
     req.phase === "Marketing" || req.phase === "Contracts" || req.phase === "Completed"
@@ -110,13 +110,25 @@ export function ProcurementPhaseOverview({ req, locale, isTas }: Props) {
 
   const initiationStatus = isTas ? taStatus : expressInitiationStatus;
 
-  const mktDone = req.marketingSubPhase === "Completed" ? 100 :
-    req.phase !== "Marketing" ? 0 :
-    Math.round(((req.marketingCurrentStep - 1) / req.marketingSteps.length) * 100);
+  const mktDone =
+    req.marketingSubPhase === "Completed" ||
+    req.phase === "Contracts" ||
+    req.phase === "Completed"
+      ? 100
+      : req.phase !== "Marketing"
+        ? 0
+        : Math.round(((req.marketingCurrentStep - 1) / req.marketingSteps.length) * 100);
 
   const mktStatus: "pending" | "active" | "completed" | "skipped" =
     req.phase === "Marketing" ? (req.marketingSubPhase === "Completed" ? "completed" : "active") :
     req.phase === "Contracts" || req.phase === "Completed" ? "completed" : "pending";
+
+  const marketingStatusText =
+    mktStatus === "completed"
+      ? marketingSubPhaseLabel("Completed", locale)
+      : req.phase === "Marketing"
+        ? marketingSubPhaseLabel(req.marketingSubPhase, locale)
+        : "—";
 
   const approvalActive = req.phase === "AwaitingApproval";
 
@@ -144,7 +156,7 @@ export function ProcurementPhaseOverview({ req, locale, isTas }: Props) {
                 {req.eamNumber && <MetaChip icon={Clock} label="EAM" value={req.eamNumber} />}
               </div>
               {approvalActive && (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-xs text-amber-800">
                   {locale.startsWith("en") ? "Awaiting MR/SR approval" : "Ожидает согласования ЛЗМ/ЛЗУ"}
                 </div>
               )}
@@ -205,7 +217,7 @@ export function ProcurementPhaseOverview({ req, locale, isTas }: Props) {
             <MetaChip
               icon={Clock}
               label={locale.startsWith("en") ? "Status" : "Статус"}
-              value={req.phase === "Marketing" ? marketingSubPhaseLabel(req.marketingSubPhase, locale) : "—"}
+              value={marketingStatusText}
             />
           </div>
           {req.phase !== "Marketing" && mktStatus !== "completed" ? (
@@ -222,7 +234,7 @@ export function ProcurementPhaseOverview({ req, locale, isTas }: Props) {
             </p>
           )}
           {req.marketingSubPhase === "WaitingAccept" && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-xs text-amber-800">
               {locale.startsWith("en")
                 ? `Awaiting acceptance by ${req.marketingSpecialistName ?? "assigned specialist"}`
                 : `Ожидает принятия: ${req.marketingSpecialistName ?? "назначенный специалист"}`}
