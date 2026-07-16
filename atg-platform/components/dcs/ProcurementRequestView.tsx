@@ -1,19 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import {
-  Activity,
-  Clock,
-  FilePlus,
-  GitBranch,
-  Loader2,
-  Map,
-  Megaphone,
-  FileSignature,
-  ShieldCheck,
-  User,
-} from "lucide-react";
+import { CheckCircle2, History, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import api, { getApiErrorMessage } from "@/lib/api";
 import {
@@ -22,34 +12,55 @@ import {
   ProcurementRequest,
   ProcurementRequestUser,
   MarketingBranchType,
-  attachmentKindLabel,
+  ContractsProcurementSectionType,
+  ContractsIntProcurementVariant,
+  ContractsDomProcurementVariant,
   getNextPendingApprover,
-  marketingSubPhaseLabel,
-  contractsSubPhaseLabel,
   phaseLabel,
-  topologyLabel,
 } from "@/lib/procurementRequest";
-import { deptLabel } from "@/lib/dcs";
-import { DocumentStatusBadge } from "@/components/dcs/DocumentBadges";
-import { dcsTheme } from "@/components/dcs/dcsTheme";
-import { MarketingRecordPanel } from "@/components/dcs/MarketingRecordPanel";
-import { MarketingDetailTabs } from "@/components/dcs/MarketingDetailTabs";
-import { ProcurementPhaseOverview } from "@/components/dcs/ProcurementPhaseOverview";
-import { MarketingWorkflowPanel } from "@/components/dcs/MarketingWorkflowPanel";
-import { ContractsWorkflowPanel } from "@/components/dcs/ContractsWorkflowPanel";
-import { TechnicalAffairsWorkflowPanel } from "@/components/dcs/TechnicalAffairsWorkflowPanel";
-import { ProcurementApproversHierarchy } from "@/components/dcs/ProcurementApproversHierarchy";
-import { ProcurementTopologyView } from "@/components/dcs/ProcurementTopologyView";
-import { ProcurementMonitoringView } from "@/components/dcs/ProcurementMonitoringView";
 import { Button } from "@/components/ui/Button";
-import { fileDownloadUrl } from "@/lib/files";
+import { DocumentStatusBadge } from "@/components/dcs/DocumentBadges";
+import { MarketingRecordPanel } from "@/components/dcs/MarketingRecordPanel";
+import { ProcurementApproversHierarchy } from "@/components/dcs/ProcurementApproversHierarchy";
+import { ProcurementMonitoringView } from "@/components/dcs/ProcurementMonitoringView";
+import { ProcurementRequestSidebar } from "@/components/dcs/ProcurementRequestSidebar";
+import { RequestSummaryCard } from "@/components/dcs/RequestSummaryCard";
+import {
+  PROCUREMENT_PHASE_ORDER,
+  ProcurementPhaseKey,
+  ProcurementPhaseStepper,
+  overallProgressPercent,
+  phaseKeyFromRequest,
+} from "@/components/dcs/ProcurementPhaseStepper";
+import {
+  priorityDotClass,
+  priorityLabel,
+  type ProcurementPriority,
+} from "@/lib/procurementPriority";
 import { cn } from "@/lib/utils";
+
+const MarketingWorkflowPanel = dynamic(
+  () => import("@/components/dcs/MarketingWorkflowPanel").then((m) => m.MarketingWorkflowPanel),
+  { loading: () => <PanelSkeleton /> },
+);
+const ContractsPhaseTabs = dynamic(
+  () => import("@/components/dcs/ContractsPhaseTabs").then((m) => m.ContractsPhaseTabs),
+  { loading: () => <PanelSkeleton /> },
+);
+const TechnicalAffairsWorkflowPanel = dynamic(
+  () => import("@/components/dcs/TechnicalAffairsWorkflowPanel").then((m) => m.TechnicalAffairsWorkflowPanel),
+  { loading: () => <PanelSkeleton /> },
+);
+
+function PanelSkeleton() {
+  return <div className="h-24 animate-pulse rounded-xl bg-foreground/5" />;
+}
 
 interface Props {
   documentId: string;
 }
 
-type Tab = "overview" | "registration" | "approvers" | "marketing" | "contracts" | "topology" | "timeline";
+type SecondaryView = "work" | "history";
 type ApproverRow = { userId: string; role: ProcurementApproverRole };
 type AttachmentRow = { kind: ProcurementAttachmentKind; fileName: string; storageKey?: string };
 
@@ -61,7 +72,9 @@ export function ProcurementRequestView({ documentId }: Props) {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [tab, setTab] = useState<Tab>("overview");
+  const [selectedPhase, setSelectedPhase] = useState<ProcurementPhaseKey>("initiation");
+  const [secondaryView, setSecondaryView] = useState<SecondaryView>("work");
+  const [phaseSynced, setPhaseSynced] = useState(false);
   const [assignable, setAssignable] = useState<{ id: string; fullName: string }[]>([]);
   const [step6Approvers, setStep6Approvers] = useState<ApproverRow[]>([
     { userId: "", role: "Initiator" },
@@ -74,10 +87,18 @@ export function ProcurementRequestView({ documentId }: Props) {
   ]);
   const [marketingWorkers, setMarketingWorkers] = useState<ProcurementRequestUser[]>([]);
   const [contractsWorkers, setContractsWorkers] = useState<ProcurementRequestUser[]>([]);
+  const [paymentWorkers, setPaymentWorkers] = useState<ProcurementRequestUser[]>([]);
+  const [approverCandidates, setApproverCandidates] = useState<ProcurementRequestUser[]>([]);
   const [selectedSpecialist, setSelectedSpecialist] = useState("");
   const [selectedEngineer, setSelectedEngineer] = useState("");
+  const [selectedPaymentSpecialist, setSelectedPaymentSpecialist] = useState("");
+  const [selectedContractsSection, setSelectedContractsSection] = useState<ContractsProcurementSectionType | "">("");
+  const [selectedIntVariant, setSelectedIntVariant] = useState<ContractsIntProcurementVariant | "">("");
+  const [selectedDomVariant, setSelectedDomVariant] = useState<ContractsDomProcurementVariant | "">("");
+  const [selectedApproverIds, setSelectedApproverIds] = useState<string[]>([]);
   const [marketingComment, setMarketingComment] = useState("");
   const [contractsComment, setContractsComment] = useState("");
+  const [paymentComment, setPaymentComment] = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -90,23 +111,53 @@ export function ProcurementRequestView({ documentId }: Props) {
           try {
             const workers = await api.get("/dcs/procurement-requests/marketing/workers");
             setMarketingWorkers(Array.isArray(workers.data) ? workers.data : []);
-          } catch (err) {
+          } catch {
             setMarketingWorkers([]);
-            setActionError(getApiErrorMessage(err, t("marketingWorkersError")));
           }
           setContractsWorkers([]);
         } else if (r.data.phase === "Contracts") {
           setMarketingWorkers([]);
-          try {
-            const workers = await api.get("/dcs/procurement-requests/contracts/workers");
-            setContractsWorkers(Array.isArray(workers.data) ? workers.data : []);
-          } catch (err) {
+          setPaymentWorkers([]);
+          if (r.data.contractsPermissions?.canAssign) {
+            try {
+              const workers = await api.get("/dcs/procurement-requests/contracts/workers");
+              setContractsWorkers(Array.isArray(workers.data) ? workers.data : []);
+            } catch {
+              setContractsWorkers([]);
+            }
+          } else {
             setContractsWorkers([]);
-            setActionError(getApiErrorMessage(err, t("contractsWorkersError")));
+          }
+          if (
+            r.data.contractsIntVariant
+            || r.data.contractsDomVariant
+            || r.data.contractsPermissions?.canSubmitIntStepApprovers
+            || r.data.contractsPermissions?.canSubmitDomStepApprovers
+          ) {
+            try {
+              const users = await api.get("/dcs/procurement-requests/marketing/plan-approver-users");
+              setApproverCandidates(Array.isArray(users.data) ? users.data : []);
+            } catch {
+              setApproverCandidates([]);
+            }
+          }
+        } else if (r.data.phase === "Payment") {
+          setMarketingWorkers([]);
+          setContractsWorkers([]);
+          if (r.data.paymentPermissions?.canAssign) {
+            try {
+              const workers = await api.get("/dcs/procurement-requests/payment/workers");
+              setPaymentWorkers(Array.isArray(workers.data) ? workers.data : []);
+            } catch {
+              setPaymentWorkers([]);
+            }
+          } else {
+            setPaymentWorkers([]);
           }
         } else {
           setMarketingWorkers([]);
           setContractsWorkers([]);
+          setPaymentWorkers([]);
         }
       })
       .catch((err) => setActionError(getApiErrorMessage(err, t("error"))))
@@ -114,22 +165,30 @@ export function ProcurementRequestView({ documentId }: Props) {
   }, [documentId, t]);
 
   useEffect(() => {
+    setPhaseSynced(false);
+    setSecondaryView("work");
     load();
     api.get("/tasks/assignees").then((r) => setAssignable(r.data));
   }, [load]);
 
-  const activeNode = useMemo(
-    () => req?.topology.find((n) => n.status === "Active"),
-    [req?.topology]
-  );
+  useEffect(() => {
+    if (!req) return;
+    const current = phaseKeyFromRequest(req.phase);
+    if (!phaseSynced) {
+      setSelectedPhase(current);
+      setPhaseSynced(true);
+      return;
+    }
+    setSelectedPhase((prev) => {
+      const prevIdx = PROCUREMENT_PHASE_ORDER.indexOf(prev);
+      const currentIdx = PROCUREMENT_PHASE_ORDER.indexOf(current);
+      // Follow the live phase when it advances past the user's selection.
+      if (currentIdx > prevIdx) return current;
+      return prev;
+    });
+  }, [req, phaseSynced]);
 
-  const progressPct = useMemo(() => {
-    if (!req) return 0;
-    const total = req.topology.filter((n) => n.status !== "Skipped").length;
-    const done = req.topology.filter((n) => n.status === "Completed").length;
-    const active = req.topology.some((n) => n.status === "Active") ? 0.5 : 0;
-    return total > 0 ? Math.round(((done + active) / total) * 100) : 0;
-  }, [req]);
+  const progressPct = useMemo(() => (req ? overallProgressPercent(req) : 0), [req]);
 
   const runAction = async (fn: () => Promise<void>) => {
     setActing(true);
@@ -166,6 +225,18 @@ export function ProcurementRequestView({ documentId }: Props) {
       comment: (comment ?? marketingComment).trim() || null,
     }).then(() => setMarketingComment(""))
   );
+  const returnMarketingToInitiator = () => {
+    const comment = marketingComment.trim();
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/marketing/return-to-initiator`, { comment }).then(() => {
+        setMarketingComment("");
+      })
+    );
+  };
   const assignMarketing = () => {
     const specialistId = (selectedSpecialist || req?.marketingSpecialistId || "").trim();
     const comment = marketingComment.trim();
@@ -196,6 +267,27 @@ export function ProcurementRequestView({ documentId }: Props) {
     return runAction(() =>
       api.post(`/dcs/procurement-requests/${documentId}/marketing/accept`, { comment }).then(() => {
         setMarketingComment("");
+      })
+    );
+  };
+  const routeContractsSection = (sectionOverride?: ContractsProcurementSectionType) => {
+    const section = sectionOverride || selectedContractsSection;
+    const comment = contractsComment.trim();
+    if (!section) {
+      setActionError(t("contractsSelectSectionRequired"));
+      return Promise.resolve();
+    }
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/route-section`, {
+        section,
+        comment,
+      }).then(() => {
+        setContractsComment("");
+        setSelectedContractsSection("");
       })
     );
   };
@@ -230,6 +322,220 @@ export function ProcurementRequestView({ documentId }: Props) {
       api.post(`/dcs/procurement-requests/${documentId}/contracts/accept`, { comment }).then(() => {
         setContractsComment("");
       })
+    );
+  };
+  const selectIntVariant = () => {
+    const variant = selectedIntVariant;
+    const comment = contractsComment.trim();
+    if (!variant) {
+      setActionError(t("intVariantRequired"));
+      return Promise.resolve();
+    }
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/int/select-variant`, {
+        variant,
+        comment,
+      }).then(() => {
+        setContractsComment("");
+        setSelectedIntVariant("");
+      })
+    );
+  };
+  const completeContractsIntStep = (step: number) => {
+    const comment = contractsComment.trim();
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/int/steps/${step}/complete`, {
+        comment,
+      }).then(() => {
+        setContractsComment("");
+        setSelectedApproverIds([]);
+      })
+    );
+  };
+  const uploadIntStepFile = (step: number, fileName: string, storageKey: string) =>
+    runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/int/steps/${step}/files`, {
+        fileName,
+        storageKey,
+      })
+    );
+  const submitIntStepApprovers = (step: number) =>
+    runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/int/steps/${step}/approvers`, {
+        userIds: selectedApproverIds,
+      }).then(() => setSelectedApproverIds([]))
+    );
+  const decideIntStepApproval = (step: number, approve: boolean) => {
+    const comment = contractsComment.trim();
+    if (!approve && !comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/int/steps/${step}/approvers/decide`, {
+        approve,
+        comment: comment || null,
+      }).then(() => setContractsComment(""))
+    );
+  };
+  const sendToSecretariat = (step: number) => {
+    const comment = contractsComment.trim();
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/int/steps/${step}/send-secretariat`, {
+        comment,
+      }).then(() => setContractsComment(""))
+    );
+  };
+  const selectDomVariant = () => {
+    const variant = selectedDomVariant;
+    const comment = contractsComment.trim();
+    if (!variant) {
+      setActionError(t("domVariantRequired"));
+      return Promise.resolve();
+    }
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/select-variant`, {
+        variant,
+        comment,
+      }).then(() => {
+        setContractsComment("");
+        setSelectedDomVariant("");
+      })
+    );
+  };
+  const completeContractsDomStep = (step: number) => {
+    const comment = contractsComment.trim();
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/steps/${step}/complete`, {
+        comment,
+      }).then(() => {
+        setContractsComment("");
+        setSelectedApproverIds([]);
+      })
+    );
+  };
+  const scheduleDomStep = (step: number, date: string) => {
+    if (!date) {
+      setActionError(t("dateRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/steps/${step}/schedule`, {
+        date,
+        comment: contractsComment.trim() || null,
+      }).then(() => setContractsComment(""))
+    );
+  };
+  const uploadDomStepFile = (step: number, fileName: string, storageKey: string) =>
+    runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/steps/${step}/files`, {
+        fileName,
+        storageKey,
+      })
+    );
+  const submitDomStepApprovers = (step: number) =>
+    runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/steps/${step}/approvers`, {
+        userIds: selectedApproverIds,
+      }).then(() => setSelectedApproverIds([]))
+    );
+  const decideDomStepApproval = (step: number, approve: boolean) => {
+    const comment = contractsComment.trim();
+    if (!approve && !comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/steps/${step}/approvers/decide`, {
+        approve,
+        comment: comment || null,
+      }).then(() => setContractsComment(""))
+    );
+  };
+  const sendToContractsAdmin = (step: number) => {
+    const comment = contractsComment.trim();
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/steps/${step}/send-contracts-admin`, {
+        comment,
+      }).then(() => setContractsComment(""))
+    );
+  };
+  const returnDomToMarketing = (step: number) => {
+    const comment = contractsComment.trim();
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/steps/${step}/return-marketing`, {
+        comment,
+      }).then(() => setContractsComment(""))
+    );
+  };
+  const rollbackDomStep = (step: number) => {
+    const comment = contractsComment.trim();
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/contracts/dom/steps/${step}/rollback`, {
+        comment,
+      }).then(() => {
+        setContractsComment("");
+        setSelectedApproverIds([]);
+      })
+    );
+  };
+  const assignPayment = () => {
+    const comment = paymentComment.trim();
+    if (!selectedPaymentSpecialist || !comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/payment/assign`, {
+        specialistId: selectedPaymentSpecialist,
+        comment,
+      }).then(() => {
+        setPaymentComment("");
+        setSelectedPaymentSpecialist("");
+      })
+    );
+  };
+  const acceptPayment = () => {
+    const comment = paymentComment.trim();
+    if (!comment) {
+      setActionError(t("assignCommentRequired"));
+      return Promise.resolve();
+    }
+    return runAction(() =>
+      api.post(`/dcs/procurement-requests/${documentId}/payment/accept`, { comment })
+        .then(() => setPaymentComment(""))
     );
   };
   const recordMarketingBranch = (branch: MarketingBranchType, resolve: boolean) => runAction(() =>
@@ -280,197 +586,401 @@ export function ProcurementRequestView({ documentId }: Props) {
   }
 
   const isTas = req.flow === "TechnicalAffairs";
+  const currentPhase = phaseKeyFromRequest(req.phase);
+  const isLivePhase = selectedPhase === currentPhase;
   const nextPendingApprover = getNextPendingApprover(req.approvers);
   const myPendingApproval =
     user && nextPendingApprover?.userId === user.id ? nextPendingApprover : undefined;
   const marketingPerms = req.marketingPermissions;
   const contractsPerms = req.contractsPermissions;
-  const showMarketingTab = req.phase === "Marketing";
-  const showContractsTab = req.phase === "Contracts";
 
-  const tabs: { id: Tab; label: string; icon: typeof Activity }[] = [
-    { id: "overview", label: t("tabs.overview"), icon: Activity },
-    { id: "registration", label: t("tabs.registration"), icon: ShieldCheck },
-    { id: "approvers", label: t("tabs.approvers"), icon: User },
-    ...(showMarketingTab ? [{ id: "marketing" as Tab, label: t("tabs.marketing"), icon: Megaphone }] : []),
-    ...(showContractsTab ? [{ id: "contracts" as Tab, label: t("tabs.contracts"), icon: FileSignature }] : []),
-    { id: "topology", label: t("tabs.topology"), icon: Map },
-    { id: "timeline", label: t("tabs.timeline"), icon: GitBranch },
-  ];
+  const stepperLabels = {
+    initiation: {
+      label: isTas ? t("phaseStepper.initiationTas") : t("phaseStepper.initiation"),
+      hint: isTas ? t("phaseStepper.initiationTasHint") : t("phaseStepper.initiationHint"),
+    },
+    approval: {
+      label: t("phaseStepper.approval"),
+      hint: t("phaseStepper.approvalHint"),
+    },
+    marketing: {
+      label: t("phaseStepper.marketing"),
+      hint: t("phaseStepper.marketingHint"),
+    },
+    contracts: {
+      label: t("phaseStepper.contracts"),
+      hint: t("phaseStepper.contractsHint"),
+    },
+    contractsLocal: {
+      label: t("phaseStepper.contractsLocal"),
+      hint: t("phaseStepper.contractsLocalHint"),
+    },
+    contractsInternational: {
+      label: t("phaseStepper.contractsInternational"),
+      hint: t("phaseStepper.contractsInternationalHint"),
+    },
+    payment: {
+      label: t("phaseStepper.payment"),
+      hint: t("phaseStepper.paymentHint"),
+    },
+    accountingSupply: {
+      label: t("phaseStepper.accountingSupply"),
+      hint: t("phaseStepper.accountingSupplyHint"),
+    },
+    done: {
+      label: t("phaseStepper.done"),
+      hint: t("phaseStepper.doneHint"),
+    },
+  };
+
+  const displayTitle = locale.startsWith("en") ? req.title : req.titleRu ?? req.title;
+  const priority = (req.priority ?? "Medium") as ProcurementPriority;
 
   return (
-    <div className={cn("flex-1 flex flex-col min-h-0", dcsTheme.meshBg)}>
-      {/* Enterprise header */}
-      <div className="shrink-0 border-b border-slate-200/60 dark:border-white/[0.06] bg-white/75 dark:bg-slate-900/65 backdrop-blur-xl shadow-sm">
-        <div className="px-6 py-5 max-w-[1400px] mx-auto">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            <div className="flex gap-4 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center shadow-lg shadow-sky-900/20 shrink-0">
-                <FilePlus size={22} className="text-white" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span className="font-mono text-sm font-bold text-atg-blue">{req.number}</span>
-                  <PhasePill phase={req.phase} locale={locale} />
-                  {req.isRegistered && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-                      {t("registeredBadge")}
-                    </span>
-                  )}
-                </div>
-                <h1 className="text-lg font-bold text-foreground leading-snug">{req.title}</h1>
-                {req.titleRu && (
-                  <p className="text-sm text-foreground/55 mt-0.5">{req.titleRu}</p>
-                )}
-                {activeNode && (
-                  <p className="text-xs text-foreground/45 mt-2 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                    {t("currentStage")}: <span className="font-medium text-foreground/70">{topologyLabel(activeNode, locale)}</span>
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <DocumentStatusBadge status={req.status as "InReview"} />
-              <div className="text-right hidden sm:block">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">{t("progress")}</p>
-                <p className="text-xl font-bold tabular-nums text-atg-blue">{progressPct}%</p>
-              </div>
-            </div>
+    <div className="flex min-h-0 flex-1 flex-col bg-[#f4f6f8] dark:bg-slate-950">
+      {/* Compact header */}
+      <div className="shrink-0 border-b border-slate-200 bg-white dark:border-white/[0.06] dark:bg-slate-900/80">
+        <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="font-mono text-sm font-bold text-sky-700 dark:text-sky-400">
+              {req.number}
+            </span>
+            <PhasePill phase={req.phase} locale={locale} />
+            <DocumentStatusBadge status={req.status as "InReview"} />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+              <span className={cn("h-2 w-2 rounded-full", priorityDotClass(priority))} />
+              {priorityLabel(priority, locale)}
+            </span>
+            <span className="ml-auto text-xs font-semibold tabular-nums text-slate-500">
+              {progressPct}%
+            </span>
           </div>
 
-          {/* Progress bar */}
-          <div className="mt-4 h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-sky-500 to-blue-600 transition-all duration-700"
-              style={{ width: `${progressPct}%` }}
+          <h1 className="mt-1.5 line-clamp-2 text-base font-semibold leading-snug text-slate-900 dark:text-slate-50">
+            {displayTitle}
+          </h1>
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-3">
+            <ProcurementPhaseStepper
+              req={req}
+              selected={selectedPhase}
+              onSelect={(phase) => {
+                setSelectedPhase(phase);
+                setSecondaryView("work");
+              }}
+              labels={stepperLabels}
+              isTas={isTas}
             />
-          </div>
-
-          {/* Tabs */}
-          <div className="mt-5 flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin">
-            {tabs.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all",
-                  tab === id
-                    ? "bg-atg-blue text-white shadow-md shadow-atg-blue/25"
-                    : "text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]"
-                )}
-              >
-                <Icon size={15} />
-                {label}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => setSecondaryView(secondaryView === "history" ? "work" : "history")}
+              className={cn(
+                "ml-auto inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold shadow-sm transition-all",
+                secondaryView === "history"
+                  ? "border-sky-500 bg-sky-600 text-white shadow-sky-500/20 hover:bg-sky-700"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-sky-500/10",
+              )}
+            >
+              <History size={14} />
+              {t("historyTab")}
+            </button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
-        <div className="px-6 py-6 max-w-[1400px] mx-auto">
+        <div className="mx-auto max-w-[1440px] px-4 py-4 sm:px-6">
           {actionError && (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+            <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-2.5 text-sm text-red-700 dark:text-red-400">
               {actionError}
             </div>
           )}
-          {tab === "overview" && (
-            <OverviewTab
-              req={req}
-              locale={locale}
-              t={t}
-              isTas={isTas}
-              acting={acting}
-              marketingPerms={marketingPerms}
-              contractsPerms={contractsPerms}
-              marketingWorkers={marketingWorkers}
-              contractsWorkers={contractsWorkers}
-              selectedSpecialist={selectedSpecialist}
-              setSelectedSpecialist={setSelectedSpecialist}
-              selectedEngineer={selectedEngineer}
-              setSelectedEngineer={setSelectedEngineer}
-              marketingComment={marketingComment}
-              setMarketingComment={setMarketingComment}
-              contractsComment={contractsComment}
-              setContractsComment={setContractsComment}
-              onCompleteMarketingStep={completeMarketingStep}
-              onRecordMarketingBranch={recordMarketingBranch}
-              onSubmitPlanApproval={submitPlanApproval}
-              onApprovePlan={approvePlan}
-              onRejectPlan={rejectPlan}
-              onConfirmRegistration={confirmRegistration}
-              onAssign={assignMarketing}
-              onAccept={acceptMarketing}
-              onAssignContracts={assignContracts}
-              onAcceptContracts={acceptContracts}
-              documentId={documentId}
-              step6Approvers={step6Approvers}
-              setStep6Approvers={setStep6Approvers}
-              step6Attachments={step6Attachments}
-              setStep6Attachments={setStep6Attachments}
-              assignable={assignable}
-              onCompleteStep={completeStep}
-              onSubmitStep6={submitStep6}
-              onRejectTas={rejectTas}
-            />
+
+          {secondaryView === "history" ? (
+            <ProcurementMonitoringView req={req} locale={locale} t={t} />
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-12">
+              <div className="space-y-3 lg:col-span-8">
+                {!isLivePhase && selectedPhase !== "done" && (
+                  <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500 dark:border-white/10 dark:bg-white/[0.03]">
+                    {t("phaseReadOnly")}
+                  </div>
+                )}
+
+                {selectedPhase === "initiation" && (
+                  <>
+                    {isTas ? (
+                      <TechnicalAffairsWorkflowPanel
+                        req={req}
+                        locale={locale}
+                        t={t}
+                        acting={acting && isLivePhase}
+                        documentId={documentId}
+                        step6Approvers={step6Approvers}
+                        setStep6Approvers={setStep6Approvers}
+                        step6Attachments={step6Attachments}
+                        setStep6Attachments={setStep6Attachments}
+                        assignable={assignable}
+                        onCompleteStep={completeStep}
+                        onSubmitStep6={submitStep6}
+                        onRejectTas={rejectTas}
+                      />
+                    ) : (
+                      <div className="space-y-3">
+                        <RequestSummaryCard req={req} locale={locale} t={t} />
+                        <ActionCard title={t("phaseStepper.initiation")} variant="sky">
+                          <p className="text-sm text-foreground/60">{t("expressRequestSummary")}</p>
+                        </ActionCard>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {selectedPhase === "approval" && (
+                  <div className="space-y-3">
+                    <RequestSummaryCard
+                      req={req}
+                      locale={locale}
+                      t={t}
+                      highlightAction={Boolean(isLivePhase && myPendingApproval)}
+                    />
+                    <ProcurementApproversHierarchy
+                      req={req}
+                      locale={locale}
+                      t={t}
+                      acting={acting && isLivePhase}
+                      myPendingApproval={isLivePhase ? myPendingApproval : undefined}
+                      onApprove={approve}
+                      onReject={reject}
+                    />
+                  </div>
+                )}
+
+                {selectedPhase === "marketing" && (
+                  <>
+                    {(isLivePhase || req.phase === "Marketing" || ["Contracts", "Completed"].includes(req.phase)) && (
+                      <>
+                        <MarketingRecordPanel
+                          documentId={req.id}
+                          canManage={
+                            isLivePhase &&
+                            (!!marketingPerms?.canAssign || !!marketingPerms?.canAccept)
+                          }
+                        />
+                        {req.marketingSubPhase !== "Completed" || isLivePhase ? (
+                          <MarketingWorkflowPanel
+                            req={req}
+                            locale={locale}
+                            t={t}
+                            acting={acting && isLivePhase}
+                            marketingPerms={isLivePhase ? marketingPerms : undefined}
+                            marketingWorkers={marketingWorkers}
+                            selectedSpecialist={selectedSpecialist}
+                            setSelectedSpecialist={setSelectedSpecialist}
+                            stepComment={marketingComment}
+                            setStepComment={setMarketingComment}
+                            onAssign={assignMarketing}
+                            onReturnToInitiator={returnMarketingToInitiator}
+                            onAccept={acceptMarketing}
+                            onCompleteMarketingStep={completeMarketingStep}
+                            onRecordMarketingBranch={recordMarketingBranch}
+                            onSubmitPlanApproval={submitPlanApproval}
+                            onApprovePlan={approvePlan}
+                            onRejectPlan={rejectPlan}
+                            onConfirmRegistration={confirmRegistration}
+                          />
+                        ) : (
+                          <ActionCard title={t("phaseStepper.marketing")} variant="violet">
+                            <p className="text-sm text-foreground/60">{t("phaseReadOnly")}</p>
+                          </ActionCard>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+
+                {selectedPhase === "contracts" && (
+                  <ContractsPhaseTabs
+                    req={req}
+                    locale={locale}
+                    t={t}
+                    acting={acting && isLivePhase}
+                    isLivePhase={isLivePhase}
+                    contractsPerms={contractsPerms}
+                    contractsWorkers={contractsWorkers}
+                    selectedEngineer={selectedEngineer}
+                    setSelectedEngineer={setSelectedEngineer}
+                    selectedContractsSection={selectedContractsSection}
+                    setSelectedContractsSection={setSelectedContractsSection}
+                    contractsComment={contractsComment}
+                    setContractsComment={setContractsComment}
+                    onRouteSection={routeContractsSection}
+                    onAssign={assignContracts}
+                    onAccept={acceptContracts}
+                    selectedIntVariant={selectedIntVariant}
+                    setSelectedIntVariant={setSelectedIntVariant}
+                    approverCandidates={approverCandidates}
+                    selectedApproverIds={selectedApproverIds}
+                    setSelectedApproverIds={setSelectedApproverIds}
+                    onSelectIntVariant={selectIntVariant}
+                    onCompleteContractsIntStep={completeContractsIntStep}
+                    onUploadStepFile={uploadIntStepFile}
+                    onSubmitApprovers={submitIntStepApprovers}
+                    onDecideApproval={decideIntStepApproval}
+                    onSendToSecretariat={sendToSecretariat}
+                    selectedDomVariant={selectedDomVariant}
+                    setSelectedDomVariant={setSelectedDomVariant}
+                    onSelectDomVariant={selectDomVariant}
+                    onCompleteContractsDomStep={completeContractsDomStep}
+                    onScheduleDomStep={scheduleDomStep}
+                    onUploadDomStepFile={uploadDomStepFile}
+                    onSubmitDomApprovers={submitDomStepApprovers}
+                    onDecideDomApproval={decideDomStepApproval}
+                    onSendToContractsAdmin={sendToContractsAdmin}
+                    onReturnDomToMarketing={returnDomToMarketing}
+                    onRollbackDomStep={rollbackDomStep}
+                  />
+                )}
+
+                {selectedPhase === "payment" && (
+                  req.phase === "Payment" ? (
+                    <PaymentPhasePanel
+                      req={req}
+                      t={t}
+                      acting={acting && isLivePhase}
+                      paymentWorkers={paymentWorkers}
+                      selectedSpecialist={selectedPaymentSpecialist}
+                      setSelectedSpecialist={setSelectedPaymentSpecialist}
+                      stepComment={paymentComment}
+                      setStepComment={setPaymentComment}
+                      onAssign={assignPayment}
+                      onAccept={acceptPayment}
+                    />
+                  ) : (
+                    <UpcomingPhaseCard
+                      title={t("phaseStepper.payment")}
+                      hint={t("phaseStepper.paymentHint")}
+                      lockedHint={t("phaseStepper.upcomingLocked")}
+                    />
+                  )
+                )}
+
+                {selectedPhase === "accountingSupply" && (
+                  <UpcomingPhaseCard
+                    title={t("phaseStepper.accountingSupply")}
+                    hint={t("phaseStepper.accountingSupplyHint")}
+                    lockedHint={t("phaseStepper.upcomingLocked")}
+                  />
+                )}
+
+                {selectedPhase === "done" && (
+                  <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] p-8 text-center">
+                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-600">
+                      <CheckCircle2 size={28} />
+                    </div>
+                    <h2 className="text-base font-bold text-foreground">{t("phaseStepper.done")}</h2>
+                    <p className="mt-1 text-sm text-foreground/55">{t("phaseStepper.doneHint")}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:col-span-4">
+                <ProcurementRequestSidebar req={req} locale={locale} isTas={isTas} t={t} />
+              </div>
+            </div>
           )}
-          {tab === "registration" && <RegistrationTab req={req} locale={locale} t={t} />}
-          {tab === "approvers" && (
-            <ProcurementApproversHierarchy
-              req={req}
-              locale={locale}
-              t={t}
-              acting={acting}
-              myPendingApproval={myPendingApproval}
-              onApprove={approve}
-              onReject={reject}
-            />
-          )}
-          {tab === "marketing" && (
-            <MarketingTab
-              req={req}
-              locale={locale}
-              t={t}
-              acting={acting}
-              marketingPerms={marketingPerms}
-              marketingWorkers={marketingWorkers}
-              selectedSpecialist={selectedSpecialist}
-              setSelectedSpecialist={setSelectedSpecialist}
-              marketingComment={marketingComment}
-              setMarketingComment={setMarketingComment}
-              onCompleteMarketingStep={completeMarketingStep}
-              onRecordMarketingBranch={recordMarketingBranch}
-              onSubmitPlanApproval={submitPlanApproval}
-              onApprovePlan={approvePlan}
-              onRejectPlan={rejectPlan}
-              onConfirmRegistration={confirmRegistration}
-              onAssign={assignMarketing}
-              onAccept={acceptMarketing}
-            />
-          )}
-          {tab === "contracts" && (
-            <ContractsTab
-              req={req}
-              locale={locale}
-              t={t}
-              acting={acting}
-              contractsPerms={contractsPerms}
-              contractsWorkers={contractsWorkers}
-              selectedEngineer={selectedEngineer}
-              setSelectedEngineer={setSelectedEngineer}
-              contractsComment={contractsComment}
-              setContractsComment={setContractsComment}
-              onAssign={assignContracts}
-              onAccept={acceptContracts}
-            />
-          )}
-          {tab === "topology" && <ProcurementTopologyView nodes={req.topology} locale={locale} hint={t("topologyHint")} />}
-          {tab === "timeline" && <ProcurementMonitoringView req={req} locale={locale} t={t} />}
         </div>
       </div>
     </div>
+  );
+}
+
+function PaymentPhasePanel({
+  req,
+  t,
+  acting,
+  paymentWorkers,
+  selectedSpecialist,
+  setSelectedSpecialist,
+  stepComment,
+  setStepComment,
+  onAssign,
+  onAccept,
+}: {
+  req: ProcurementRequest;
+  t: ReturnType<typeof useTranslations>;
+  acting: boolean;
+  paymentWorkers: ProcurementRequestUser[];
+  selectedSpecialist: string;
+  setSelectedSpecialist: (v: string) => void;
+  stepComment: string;
+  setStepComment: (v: string) => void;
+  onAssign: () => void;
+  onAccept: () => void;
+}) {
+  const inputClass = cn(
+    "w-full rounded-xl border border-border/70 bg-background px-3 py-2.5 text-sm",
+    "focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
+  );
+  const perms = req.paymentPermissions;
+
+  return (
+    <section className="rounded-2xl border border-emerald-500/20 bg-surface shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/8 via-transparent to-transparent">
+        <h2 className="text-sm font-bold">{t("phaseStepper.payment")}</h2>
+        <p className="text-xs text-foreground/50 mt-1">{t("paymentPhaseHint")}</p>
+      </div>
+      <div className="p-4 space-y-3">
+        {req.paymentSpecialistName && (
+          <p className="text-xs text-foreground/60">
+            {t("paymentSpecialist")}: <span className="font-semibold">{req.paymentSpecialistName}</span>
+            {" · "}
+            {req.paymentSubPhase}
+          </p>
+        )}
+        {perms?.canAssign && (
+          <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <p className="text-xs font-semibold">{t("assignPaymentSpecialist")}</p>
+            <select
+              className={inputClass}
+              value={selectedSpecialist}
+              onChange={(e) => setSelectedSpecialist(e.target.value)}
+            >
+              <option value="">{t("selectUser")}</option>
+              {paymentWorkers.map((u) => (
+                <option key={u.id} value={u.id}>{u.fullName}</option>
+              ))}
+            </select>
+            <textarea
+              className={cn(inputClass, "min-h-[64px]")}
+              placeholder={t("assignCommentPlaceholder")}
+              value={stepComment}
+              onChange={(e) => setStepComment(e.target.value)}
+            />
+            <Button size="sm" disabled={acting || !selectedSpecialist || !stepComment.trim()} onClick={onAssign}>
+              {t("assignEngineer")}
+            </Button>
+          </div>
+        )}
+        {perms?.canAccept && (
+          <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <p className="text-xs font-semibold">{t("acceptPaymentTask")}</p>
+            <textarea
+              className={cn(inputClass, "min-h-[64px]")}
+              placeholder={t("acceptCommentPlaceholder")}
+              value={stepComment}
+              onChange={(e) => setStepComment(e.target.value)}
+            />
+            <Button size="sm" disabled={acting || !stepComment.trim()} onClick={onAccept}>
+              {t("acceptTask")}
+            </Button>
+          </div>
+        )}
+        {!perms?.canAssign && !perms?.canAccept && (
+          <p className="text-sm text-foreground/55">{t("paymentWaiting")}</p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -480,6 +990,7 @@ function PhasePill({ phase, locale }: { phase: ProcurementRequest["phase"]; loca
     AwaitingApproval: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
     Marketing: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
     Contracts: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
+    Payment: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
     Completed: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   };
   return (
@@ -489,361 +1000,36 @@ function PhasePill({ phase, locale }: { phase: ProcurementRequest["phase"]; loca
   );
 }
 
-function OverviewTab({
-  req, locale, t, isTas, acting,
-  marketingPerms, contractsPerms, marketingWorkers, contractsWorkers,
-  selectedSpecialist, setSelectedSpecialist, selectedEngineer, setSelectedEngineer,
-  marketingComment, setMarketingComment, contractsComment, setContractsComment,
-  step6Approvers, setStep6Approvers, step6Attachments, setStep6Attachments, assignable,
-  documentId,
-  onCompleteStep, onSubmitStep6, onRejectTas,
-  onCompleteMarketingStep, onRecordMarketingBranch,
-  onSubmitPlanApproval, onApprovePlan, onRejectPlan, onConfirmRegistration,
-  onAssign, onAccept, onAssignContracts, onAcceptContracts,
-}: {
-  req: ProcurementRequest;
-  locale: string;
-  t: ReturnType<typeof useTranslations>;
-  isTas: boolean;
-  acting: boolean;
-  marketingPerms?: ProcurementRequest["marketingPermissions"];
-  contractsPerms?: ProcurementRequest["contractsPermissions"];
-  marketingWorkers: ProcurementRequestUser[];
-  contractsWorkers: ProcurementRequestUser[];
-  selectedSpecialist: string;
-  setSelectedSpecialist: (v: string) => void;
-  selectedEngineer: string;
-  setSelectedEngineer: (v: string) => void;
-  marketingComment: string;
-  setMarketingComment: (v: string) => void;
-  contractsComment: string;
-  setContractsComment: (v: string) => void;
-  step6Approvers: ApproverRow[];
-  setStep6Approvers: (v: ApproverRow[]) => void;
-  step6Attachments: AttachmentRow[];
-  setStep6Attachments: (v: AttachmentRow[]) => void;
-  assignable: { id: string; fullName: string }[];
-  documentId: string;
-  onCompleteStep: (s: number, comment: string) => void;
-  onSubmitStep6: () => void;
-  onRejectTas: (comment: string) => void;
-  onCompleteMarketingStep: (step: number, comment?: string) => void;
-  onRecordMarketingBranch: (branch: MarketingBranchType, resolve: boolean) => void;
-  onSubmitPlanApproval: (approvers: { userId: string; role: string }[]) => void;
-  onApprovePlan: (comment: string) => void;
-  onRejectPlan: (comment: string) => void;
-  onConfirmRegistration: () => void;
-  onAssign: () => void;
-  onAccept: () => void;
-  onAssignContracts: () => void;
-  onAcceptContracts: () => void;
-}) {
-  return (
-    <div className="space-y-6">
-      <ProcurementPhaseOverview req={req} locale={locale} isTas={isTas} />
-
-      <div className="grid lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-6">
-        {isTas && req.phase === "InProgress" && (
-          <TechnicalAffairsWorkflowPanel
-            req={req}
-            locale={locale}
-            t={t}
-            acting={acting}
-            documentId={documentId}
-            step6Approvers={step6Approvers}
-            setStep6Approvers={setStep6Approvers}
-            step6Attachments={step6Attachments}
-            setStep6Attachments={setStep6Attachments}
-            assignable={assignable}
-            onCompleteStep={onCompleteStep}
-            onSubmitStep6={onSubmitStep6}
-            onRejectTas={onRejectTas}
-          />
-        )}
-
-        {req.phase === "AwaitingApproval" && (
-          <ActionCard title={t("approvalPending")} variant="amber">
-            <p className="text-sm text-foreground/60">{t("approversTabHint")}</p>
-          </ActionCard>
-        )}
-
-        {req.phase === "Marketing" && req.marketingSubPhase !== "Completed" && (
-          <MarketingWorkflowPanel
-            req={req}
-            locale={locale}
-            t={t}
-            acting={acting}
-            marketingPerms={marketingPerms}
-            marketingWorkers={marketingWorkers}
-            selectedSpecialist={selectedSpecialist}
-            setSelectedSpecialist={setSelectedSpecialist}
-            stepComment={marketingComment}
-            setStepComment={setMarketingComment}
-            onAssign={onAssign}
-            onAccept={onAccept}
-            onCompleteMarketingStep={onCompleteMarketingStep}
-            onRecordMarketingBranch={onRecordMarketingBranch}
-            onSubmitPlanApproval={onSubmitPlanApproval}
-            onApprovePlan={onApprovePlan}
-            onRejectPlan={onRejectPlan}
-            onConfirmRegistration={onConfirmRegistration}
-          />
-        )}
-
-        {req.phase === "Contracts" && req.contractsSubPhase !== "Completed" && (
-          <ContractsWorkflowPanel
-            req={req}
-            locale={locale}
-            t={t}
-            acting={acting}
-            contractsPerms={contractsPerms}
-            contractsWorkers={contractsWorkers}
-            selectedEngineer={selectedEngineer}
-            setSelectedEngineer={setSelectedEngineer}
-            stepComment={contractsComment}
-            setStepComment={setContractsComment}
-            onAssign={onAssignContracts}
-            onAccept={onAcceptContracts}
-          />
-        )}
-      </div>
-
-      <div className="space-y-4">
-        <InfoCard title={t("tabs.registration")}>
-          <InfoRow label={t("regNumber")} value={req.isRegistered ? req.number : t("pendingReg")} highlight={req.isRegistered} />
-          {req.registeredAt && <InfoRow label={t("regDate")} value={new Date(req.registeredAt).toLocaleString(locale)} />}
-        </InfoCard>
-        <InfoCard title={t("meta")}>
-          {isTas && (
-            <>
-              <InfoRow label={t("eamNumber")} value={req.eamNumber ?? "—"} />
-              <InfoRow label={t("initiator")} value={req.initiatorName ?? "—"} />
-              {req.dueDate && (
-                <InfoRow label={t("deadline")} value={new Date(req.dueDate).toLocaleDateString(locale)} />
-              )}
-              <InfoRow label={t("responsible")} value={req.assigneeName ?? "—"} />
-            </>
-          )}
-          <InfoRow label={t("department")} value={deptLabel(req.departmentName, req.departmentNameEn, locale)} />
-          {req.marketingTaskNumber && <InfoRow label={t("marketingTask")} value={req.marketingTaskNumber} />}
-          {req.phase === "Marketing" && (
-            <>
-              <InfoRow label={t("marketingStep")} value={`${req.marketingCurrentStep} / ${req.marketingSteps.length}`} />
-              <InfoRow label={t("marketingSubPhase")} value={marketingSubPhaseLabel(req.marketingSubPhase, locale)} />
-            </>
-          )}
-          {req.marketingSpecialistName && <InfoRow label={t("marketingSpecialist")} value={req.marketingSpecialistName} />}
-          {req.contractsTaskNumber && <InfoRow label={t("contractsTask")} value={req.contractsTaskNumber} />}
-          {req.phase === "Contracts" && (
-            <InfoRow label={t("contractsSubPhase")} value={contractsSubPhaseLabel(req.contractsSubPhase, locale)} />
-          )}
-          {req.contractsSpecialistName && <InfoRow label={t("contractsEngineer")} value={req.contractsSpecialistName} />}
-        </InfoCard>
-        {req.attachments.length > 0 && (
-          <InfoCard title={t("attachments")}>
-            <ul className="space-y-2 text-sm">
-              {req.attachments.map((a) => (
-                <li key={a.id} className="flex justify-between gap-2">
-                  {a.storageKey ? (
-                    <a href={fileDownloadUrl(a.storageKey)} className="truncate text-atg-blue hover:underline" target="_blank" rel="noreferrer">
-                      {a.fileName}
-                    </a>
-                  ) : (
-                    <span className="truncate">{a.fileName}</span>
-                  )}
-                  <span className="text-foreground/40 shrink-0">{attachmentKindLabel(a.kind, locale)}</span>
-                </li>
-              ))}
-            </ul>
-          </InfoCard>
-        )}
-      </div>
-    </div>
-    </div>
-  );
-}
-
-function MarketingTab({
-  req, locale, t, acting, marketingPerms, marketingWorkers,
-  selectedSpecialist, setSelectedSpecialist, marketingComment, setMarketingComment,
-  onCompleteMarketingStep, onRecordMarketingBranch,
-  onSubmitPlanApproval, onApprovePlan, onRejectPlan, onConfirmRegistration,
-  onAssign, onAccept,
-}: {
-  req: ProcurementRequest;
-  locale: string;
-  t: ReturnType<typeof useTranslations>;
-  acting: boolean;
-  marketingPerms?: ProcurementRequest["marketingPermissions"];
-  marketingWorkers: ProcurementRequestUser[];
-  selectedSpecialist: string;
-  setSelectedSpecialist: (v: string) => void;
-  marketingComment: string;
-  setMarketingComment: (v: string) => void;
-  onCompleteMarketingStep: (step: number, comment?: string) => void;
-  onRecordMarketingBranch: (branch: MarketingBranchType, resolve: boolean) => void;
-  onSubmitPlanApproval: (approvers: { userId: string; role: string }[]) => void;
-  onApprovePlan: (comment: string) => void;
-  onRejectPlan: (comment: string) => void;
-  onConfirmRegistration: () => void;
-  onAssign: () => void;
-  onAccept: () => void;
-}) {
-  return (
-    <div className="space-y-6 max-w-4xl">
-      <ProcurementPhaseOverview req={req} locale={locale} isTas={req.flow === "TechnicalAffairs"} />
-      <MarketingRecordPanel
-        documentId={req.id}
-        canManage={!!marketingPerms?.canAssign || !!marketingPerms?.canAccept}
-      />
-      <MarketingDetailTabs
-        documentId={req.id}
-        canEdit={!!marketingPerms?.canCompleteCurrentStep || !!marketingPerms?.canAssign}
-      />
-      <MarketingWorkflowPanel
-        req={req}
-        locale={locale}
-        t={t}
-        acting={acting}
-        marketingPerms={marketingPerms}
-        marketingWorkers={marketingWorkers}
-        selectedSpecialist={selectedSpecialist}
-        setSelectedSpecialist={setSelectedSpecialist}
-        stepComment={marketingComment}
-        setStepComment={setMarketingComment}
-        onAssign={onAssign}
-        onAccept={onAccept}
-        onCompleteMarketingStep={onCompleteMarketingStep}
-        onRecordMarketingBranch={onRecordMarketingBranch}
-        onSubmitPlanApproval={onSubmitPlanApproval}
-        onApprovePlan={onApprovePlan}
-        onRejectPlan={onRejectPlan}
-        onConfirmRegistration={onConfirmRegistration}
-      />
-    </div>
-  );
-}
-
-function ContractsTab({
-  req, locale, t, acting, contractsPerms, contractsWorkers,
-  selectedEngineer, setSelectedEngineer, contractsComment, setContractsComment,
-  onAssign, onAccept,
-}: {
-  req: ProcurementRequest;
-  locale: string;
-  t: ReturnType<typeof useTranslations>;
-  acting: boolean;
-  contractsPerms?: ProcurementRequest["contractsPermissions"];
-  contractsWorkers: ProcurementRequestUser[];
-  selectedEngineer: string;
-  setSelectedEngineer: (v: string) => void;
-  contractsComment: string;
-  setContractsComment: (v: string) => void;
-  onAssign: () => void;
-  onAccept: () => void;
-}) {
-  return (
-    <div className="space-y-6 max-w-4xl">
-      <ProcurementPhaseOverview req={req} locale={locale} isTas={req.flow === "TechnicalAffairs"} />
-      <ContractsWorkflowPanel
-        req={req}
-        locale={locale}
-        t={t}
-        acting={acting}
-        contractsPerms={contractsPerms}
-        contractsWorkers={contractsWorkers}
-        selectedEngineer={selectedEngineer}
-        setSelectedEngineer={setSelectedEngineer}
-        stepComment={contractsComment}
-        setStepComment={setContractsComment}
-        onAssign={onAssign}
-        onAccept={onAccept}
-      />
-    </div>
-  );
-}
-
-function RegistrationTab({ req, locale, t }: { req: ProcurementRequest; locale: string; t: ReturnType<typeof useTranslations> }) {
-  const marketingRegistered = !!req.marketingPlanRegisteredAt;
-  return (
-    <div className="max-w-2xl space-y-6">
-      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm overflow-hidden">
-        <div className="px-6 py-8 text-center border-b border-border/50 bg-gradient-to-b from-emerald-500/5 to-transparent">
-          <div className={cn("w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4", req.isRegistered ? "bg-emerald-500/15" : "bg-foreground/[0.06]")}>
-            <ShieldCheck size={32} className={req.isRegistered ? "text-emerald-600" : "text-foreground/30"} />
-          </div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/40 mb-2">{t("registrationTitle")}</p>
-          <p className="font-mono text-2xl font-bold text-foreground">{req.isRegistered ? req.number : t("pendingReg")}</p>
-          {req.registeredAt && (
-            <p className="text-sm text-foreground/50 mt-2">{t("regDate")}: {new Date(req.registeredAt).toLocaleString(locale)}</p>
-          )}
-        </div>
-        <div className="p-6 space-y-4 text-sm">
-          <p className="text-foreground/60 leading-relaxed">{req.isRegistered ? t("registrationDoneHint") : t("registrationPendingHint")}</p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div className="rounded-xl border border-border/60 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">{t("subjectEn")}</p>
-              <p className="font-medium mt-1">{req.title}</p>
-            </div>
-            <div className="rounded-xl border border-border/60 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">{t("subjectRu")}</p>
-              <p className="font-medium mt-1">{req.titleRu ?? "—"}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-violet-500/20 bg-surface shadow-sm overflow-hidden">
-        <div className="px-6 py-8 text-center border-b border-border/50 bg-gradient-to-b from-violet-500/5 to-transparent">
-          <div className={cn("w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4", marketingRegistered ? "bg-violet-500/15" : "bg-foreground/[0.06]")}>
-            <ShieldCheck size={32} className={marketingRegistered ? "text-violet-600" : "text-foreground/30"} />
-          </div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/40 mb-2">{t("step9.registrationTitle")}</p>
-          <p className="font-mono text-2xl font-bold text-foreground">
-            {marketingRegistered ? req.marketingPlanRegistrationNumber : t("step9.pendingNumber")}
-          </p>
-          {req.marketingPlanRegisteredAt && (
-            <p className="text-sm text-foreground/50 mt-2">
-              {t("regDate")}: {new Date(req.marketingPlanRegisteredAt).toLocaleString(locale)}
-            </p>
-          )}
-        </div>
-        <div className="p-6">
-          <p className="text-sm text-foreground/60 leading-relaxed">
-            {marketingRegistered ? t("step9.registrationDoneHint") : t("step9.registrationPendingHint")}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-surface p-4 shadow-sm">
-      <h3 className="text-[10px] font-bold uppercase tracking-wider text-foreground/40 mb-3">{title}</h3>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div>
-      <p className="text-[10px] text-foreground/40">{label}</p>
-      <p className={cn("text-sm font-medium", highlight && "text-emerald-600 font-mono")}>{value}</p>
-    </div>
-  );
-}
-
-function ActionCard({ title, subtitle, variant, children }: { title: string; subtitle?: string; variant: "amber" | "violet"; children: React.ReactNode }) {
-  const styles = { amber: "border-amber-500/30 bg-amber-500/5", violet: "border-violet-500/30 bg-violet-500/5" };
+function ActionCard({ title, subtitle, variant, children }: { title: string; subtitle?: string; variant: "amber" | "violet" | "sky"; children: React.ReactNode }) {
+  const styles = {
+    amber: "border-amber-500/30 bg-amber-500/5",
+    violet: "border-violet-500/30 bg-violet-500/5",
+    sky: "border-sky-500/30 bg-sky-500/5",
+  };
   return (
     <div className={cn("rounded-2xl border p-5", styles[variant])}>
       <h2 className="text-sm font-bold mb-1">{title}</h2>
       {subtitle && <p className="text-sm text-foreground/55 mb-4">{subtitle}</p>}
       {children}
+    </div>
+  );
+}
+
+function UpcomingPhaseCard({
+  title,
+  hint,
+  lockedHint,
+}: {
+  title: string;
+  hint: string;
+  lockedHint: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/15 dark:bg-white/[0.03]">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">0%</p>
+      <h2 className="mt-2 text-base font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{hint}</p>
+      <p className="mt-4 text-xs font-medium text-amber-700 dark:text-amber-300">{lockedHint}</p>
     </div>
   );
 }

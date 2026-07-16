@@ -87,6 +87,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("NameGenitive")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
@@ -205,6 +209,10 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.HasIndex("OrganizationId");
 
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Type");
+
                     b.ToTable("documents", (string)null);
                 });
 
@@ -247,6 +255,380 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.HasIndex("DocumentId");
 
                     b.ToTable("document_activities", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripApprover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("hr_business_trip_approvers", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripDeptWorkflow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DepartmentCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("TitleRu")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "DepartmentCode")
+                        .IsUnique();
+
+                    b.ToTable("hr_business_trip_dept_workflows", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripRequestDetail", b =>
+                {
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("DateFrom")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("DateTo")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("DaysCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("EimzoCompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("OrderDocxStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("OrderIssuedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("OrderNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PdfPresentationStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PdfSignedStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PdfStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("PlaceEn")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PlaceRu")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PurposeEn")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("PurposeRu")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("RequestDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SigningPayloadHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("DocumentId");
+
+                    b.ToTable("hr_business_trip_request_details", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripSignature", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApproverRole")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("CertificateSerial")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PayloadSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Pkcs7Base64")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SignedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SignerCn")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("SignerPinpp")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SignerTin")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("SignerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("SignerUserId");
+
+                    b.ToTable("hr_business_trip_signatures", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripTraveler", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CertificateDeliveredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CertificateNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("CertificateStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FullNameEn")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("FullNameRu")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("PositionEn")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("PositionRu")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("hr_business_trip_travelers", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowInitiator", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TierId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("hr_business_trip_workflow_initiators", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ApproverUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LabelEn")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("LabelRu")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TierId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApproverUserId");
+
+                    b.HasIndex("TierId", "SortOrder")
+                        .IsUnique();
+
+                    b.ToTable("hr_business_trip_workflow_steps", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowTier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("CatchAllStaff")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MatchPriority")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("PrependsSectionManager")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TierKey")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("TitleRu")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowId", "TierKey")
+                        .IsUnique();
+
+                    b.ToTable("hr_business_trip_workflow_tiers", (string)null);
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveApprover", b =>
@@ -301,6 +683,9 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("EimzoCompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<Guid>("HrDepartmentId")
                         .HasColumnType("uuid");
 
@@ -309,6 +694,18 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Property<Guid?>("HrTaskId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("PdfPresentationStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PdfSignedStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PdfStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("PeriodLabel")
                         .IsRequired()
@@ -322,6 +719,10 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Property<DateTime>("RequestDate")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SigningPayloadHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("Track")
                         .IsRequired()
@@ -376,6 +777,69 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.ToTable("hr_leave_request_items", (string)null);
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveSignature", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApproverRole")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("CertificateSerial")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PayloadSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Pkcs7Base64")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SignedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SignerCn")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("SignerPinpp")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SignerTin")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("SignerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("SignerUserId");
+
+                    b.ToTable("hr_leave_signatures", (string)null);
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.IncomingLetterComment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -410,8 +874,24 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<Guid>("DocumentId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("AssignmentTask")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ExecutorAcceptedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("HelpDeskTicketId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("InformedAt")
                         .HasColumnType("timestamp without time zone");
@@ -420,6 +900,21 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("ReportedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("RequiresResponse")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequiresTranslation")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ResolutionManagerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("RoutedAt")
                         .HasColumnType("timestamp without time zone");
@@ -430,7 +925,34 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<Guid?>("RoutedToDepartmentId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("SentForResolutionAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("SentToTranslationAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SourceLanguage")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("TranslatedAttachmentFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("TranslatedAttachmentStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TranslatingLanguage")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("TranslationReturnedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.HasKey("DocumentId");
+
+                    b.HasIndex("ResolutionManagerId");
 
                     b.HasIndex("RoutedById");
 
@@ -447,6 +969,9 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Property<Guid>("DocumentId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("ForInformation")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("Informed")
                         .HasColumnType("boolean");
@@ -467,6 +992,120 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("incoming_letter_recipients", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ItAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("BudgetAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("BudgetCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("ContractDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ContractNumber")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<decimal?>("Cost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("LastExpiryWarningAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("NameRu")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("PlanYear")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Quantity")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("ResponsibleUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("StartsAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Term")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("PlanYear");
+
+                    b.HasIndex("ResponsibleUserId");
+
+                    b.ToTable("it_assets", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ItAutomationRoleAssignment", b =>
+                {
+                    b.Property<string>("Category")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("ResponsibleUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Category");
+
+                    b.HasIndex("ResponsibleUserId");
+
+                    b.ToTable("it_automation_role_assignments", (string)null);
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.MarketingOffer", b =>
@@ -499,6 +1138,30 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Property<bool>("DeliveryIncluded")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("EngineerReviewComment")
+                        .HasColumnType("text");
+
+                    b.Property<int>("EngineerReviewStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("EngineerReviewedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("EngineerReviewedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("InitiatorReviewComment")
+                        .HasColumnType("text");
+
+                    b.Property<int>("InitiatorReviewStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("InitiatorReviewedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("InitiatorReviewedById")
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsAffiliated")
                         .HasColumnType("boolean");
@@ -618,6 +1281,17 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<DateTime?>("RegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("RegistrationMethod")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RegistrationNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("RejectionNotes")
                         .HasColumnType("text");
 
@@ -636,6 +1310,14 @@ namespace ATG.Platform.Infrastructure.Migrations
 
                     b.Property<DateTime?>("SubmittedAt")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TemplateFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("TemplateStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -755,6 +1437,9 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<string>("RequestTitle")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<DateOnly?>("RfqCommercialProposalDeadline")
+                        .HasColumnType("date");
 
                     b.Property<string>("RfqDocumentFileName")
                         .HasMaxLength(255)
@@ -887,6 +1572,384 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.ToTable("marketing_rfq_channel_requests", (string)null);
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("memo_comments", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoCoordinator", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CoordinatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("memo_coordinators", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoDetail", b =>
+                {
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("AssignmentTask")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("CoordinationCompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("DeptHeadApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("DeptHeadId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ExecutorAcceptedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("HelpDeskTicketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("RegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ReportedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("RequiresResponse")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequiresTopManagementResolution")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequiresTranslation")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ResolutionManagerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("RevisionNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("RoutedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("RoutedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RoutedToDepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SentToTranslationAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SourceLanguage")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TranslatedAttachmentFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("TranslatedAttachmentStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TranslatingLanguage")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("TranslationReturnedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("DocumentId");
+
+                    b.HasIndex("DeptHeadId");
+
+                    b.HasIndex("ResolutionManagerId");
+
+                    b.HasIndex("RoutedById");
+
+                    b.HasIndex("RoutedToDepartmentId");
+
+                    b.ToTable("memo_details", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ForInformation")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("NotifiedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("memo_recipients", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("order_comments", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderCoordinator", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CoordinatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ForDepartment")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("order_coordinators", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderDetail", b =>
+                {
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("CoordinationCompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("DeptHeadApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("DeptHeadId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DistributedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("EdsFinalizedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("FirstDeputyApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("FirstDeputyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("GeneralDirectorApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("GeneralDirectorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("LegalApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("LegalHeadId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("PaperSignedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("RegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("RevisionNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ScanAttachmentFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("ScanAttachmentStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ScanUploadedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("SentToRegistrarAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("SupervisingDeputyApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("SupervisingDeputyId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("DocumentId");
+
+                    b.HasIndex("DeptHeadId");
+
+                    b.HasIndex("FirstDeputyId");
+
+                    b.HasIndex("GeneralDirectorId");
+
+                    b.HasIndex("LegalHeadId");
+
+                    b.HasIndex("SupervisingDeputyId");
+
+                    b.ToTable("order_details", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("NotifiedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("order_recipients", (string)null);
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Organization", b =>
                 {
                     b.Property<Guid>("Id")
@@ -927,6 +1990,168 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.ToTable("organizations", (string)null);
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OutgoingLetterComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("outgoing_letter_comments", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OutgoingLetterCoordinator", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CoordinatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ForDepartment")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("outgoing_letter_coordinators", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OutgoingLetterDetail", b =>
+                {
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("CoordinationCompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("DeptHeadApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("DeptHeadId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DispatchedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("EdsFinalizedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("FirstDeputyApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("FirstDeputyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("GeneralDirectorApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("GeneralDirectorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("HelpDeskTicketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("PaperSignedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("RegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("RequiresTranslation")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RevisionNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("SentToRegistrarAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("SentToTranslationAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SourceLanguage")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("SubmittedToEdsAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("SupervisingDeputyApprovedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("SupervisingDeputyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TranslatedAttachmentFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("TranslatedAttachmentStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TranslatingLanguage")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("TranslationReturnedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("DocumentId");
+
+                    b.HasIndex("DeptHeadId");
+
+                    b.HasIndex("FirstDeputyId");
+
+                    b.HasIndex("GeneralDirectorId");
+
+                    b.HasIndex("SupervisingDeputyId");
+
+                    b.ToTable("outgoing_letter_details", (string)null);
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Position", b =>
                 {
                     b.Property<Guid>("Id")
@@ -949,6 +2174,156 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("positions", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementContractsDomStepApprover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("DocumentId", "StepNumber");
+
+                    b.ToTable("procurement_contracts_dom_step_approvers", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementContractsDomStepFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("UploadedById")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedById");
+
+                    b.HasIndex("DocumentId", "StepNumber");
+
+                    b.ToTable("procurement_contracts_dom_step_files", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementContractsIntStepApprover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("DocumentId", "StepNumber");
+
+                    b.ToTable("procurement_contracts_int_step_approvers", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementContractsIntStepFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("UploadedById")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedById");
+
+                    b.HasIndex("DocumentId", "StepNumber");
+
+                    b.ToTable("procurement_contracts_int_step_files", (string)null);
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementMarketingPlanApprover", b =>
@@ -1081,6 +2456,84 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<DateTime?>("ContractsAssignedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("ContractsDomActualDeliveryDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ContractsDomCompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ContractsDomContractRegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ContractsDomContractRegistrationNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("ContractsDomContractsAdminPending")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ContractsDomContractsAdminUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ContractsDomCurrentStep")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("ContractsDomDeliveryDueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ContractsDomLastTerminationAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ContractsDomPriceRequestDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ContractsDomPriceResponseDueDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ContractsDomVariant")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("ContractsDomVariantSelectedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ContractsIntCompletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ContractsIntContractRegisteredAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ContractsIntContractRegistrationNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("ContractsIntCurrentStep")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<bool>("ContractsIntSecretariatPending")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ContractsIntSecretariatUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContractsIntVariant")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("ContractsIntVariantSelectedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ContractsProcurementSection")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("ContractsSectionRoutedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<Guid?>("ContractsSpecialistId")
                         .HasColumnType("uuid");
 
@@ -1158,6 +2611,23 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<Guid?>("MarketingTaskId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("PaymentAcceptedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("PaymentAssignedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("PaymentSpecialistId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PaymentSubPhase")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("PaymentTaskId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Phase")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1184,7 +2654,18 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<Guid?>("ResponsibleTaskId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("TasRequisitionType")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("TasResponsibleId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("DocumentId");
+
+                    b.HasIndex("ContractsDomContractsAdminUserId");
+
+                    b.HasIndex("ContractsIntSecretariatUserId");
 
                     b.HasIndex("ContractsSpecialistId");
 
@@ -1193,6 +2674,12 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.HasIndex("InitiatorId");
 
                     b.HasIndex("MarketingSpecialistId");
+
+                    b.HasIndex("PaymentSpecialistId");
+
+                    b.HasIndex("Phase");
+
+                    b.HasIndex("TasResponsibleId");
 
                     b.ToTable("procurement_request_details", (string)null);
                 });
@@ -1237,6 +2724,30 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.HasIndex("DocumentId", "Phase", "StepNumber");
 
                     b.ToTable("procurement_step_comments", (string)null);
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementWorkflowRoleAssignment", b =>
+                {
+                    b.Property<string>("RoleKey")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("EngineerDepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ManagerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("RoleKey");
+
+                    b.HasIndex("EngineerDepartmentId");
+
+                    b.HasIndex("ManagerUserId");
+
+                    b.ToTable("procurement_workflow_role_assignments", (string)null);
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.RefreshToken", b =>
@@ -1356,6 +2867,9 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
+                    b.Property<Guid?>("LinkedDocumentId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1372,6 +2886,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<Guid>("RequesterId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("SourceLanguage")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -1387,6 +2905,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TranslatingLanguage")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -1556,6 +3078,14 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("PassportNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PassportSeries")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1564,8 +3094,15 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Pinpp")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
                     b.Property<Guid?>("PositionId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ProfileCompletedAt")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -1716,7 +3253,9 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.HasIndex("Number")
                         .IsUnique();
 
-                    b.HasIndex("OrganizationId");
+                    b.HasIndex("Status");
+
+                    b.HasIndex("OrganizationId", "Status");
 
                     b.ToTable("work_tasks", (string)null);
                 });
@@ -1801,6 +3340,131 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Document");
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripApprover", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.HrBusinessTripRequestDetail", "Request")
+                        .WithMany("Approvers")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripDeptWorkflow", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripRequestDetail", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.Document", "Document")
+                        .WithOne()
+                        .HasForeignKey("ATG.Platform.Domain.Entities.HrBusinessTripRequestDetail", "DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripSignature", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.HrBusinessTripRequestDetail", "Request")
+                        .WithMany("Signatures")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "Signer")
+                        .WithMany()
+                        .HasForeignKey("SignerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("Signer");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripTraveler", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.HrBusinessTripRequestDetail", "Request")
+                        .WithMany("Travelers")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowInitiator", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowTier", "Tier")
+                        .WithMany("Initiators")
+                        .HasForeignKey("TierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tier");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowStep", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ApproverUser")
+                        .WithMany()
+                        .HasForeignKey("ApproverUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowTier", "Tier")
+                        .WithMany("Steps")
+                        .HasForeignKey("TierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApproverUser");
+
+                    b.Navigation("Tier");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowTier", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.HrBusinessTripDeptWorkflow", "Workflow")
+                        .WithMany("Tiers")
+                        .HasForeignKey("WorkflowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Workflow");
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveApprover", b =>
                 {
                     b.HasOne("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", "Request")
@@ -1850,6 +3514,25 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Request");
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveSignature", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", "Request")
+                        .WithMany("Signatures")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "Signer")
+                        .WithMany()
+                        .HasForeignKey("SignerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("Signer");
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.IncomingLetterComment", b =>
                 {
                     b.HasOne("ATG.Platform.Domain.Entities.User", "Author")
@@ -1877,6 +3560,11 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ResolutionManager")
+                        .WithMany()
+                        .HasForeignKey("ResolutionManagerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ATG.Platform.Domain.Entities.User", "RoutedBy")
                         .WithMany()
                         .HasForeignKey("RoutedById")
@@ -1888,6 +3576,8 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Document");
+
+                    b.Navigation("ResolutionManager");
 
                     b.Navigation("RoutedBy");
 
@@ -1911,6 +3601,26 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Letter");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ItAsset", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ResponsibleUser")
+                        .WithMany()
+                        .HasForeignKey("ResponsibleUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ResponsibleUser");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ItAutomationRoleAssignment", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ResponsibleUser")
+                        .WithMany()
+                        .HasForeignKey("ResponsibleUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ResponsibleUser");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.MarketingOffer", b =>
@@ -1996,6 +3706,211 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Record");
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoComment", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.MemoDetail", "Memo")
+                        .WithMany("Comments")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Memo");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoCoordinator", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.MemoDetail", "Memo")
+                        .WithMany("Coordinators")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Memo");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoDetail", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "DeptHead")
+                        .WithMany()
+                        .HasForeignKey("DeptHeadId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.Document", "Document")
+                        .WithOne()
+                        .HasForeignKey("ATG.Platform.Domain.Entities.MemoDetail", "DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ResolutionManager")
+                        .WithMany()
+                        .HasForeignKey("ResolutionManagerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "RoutedBy")
+                        .WithMany()
+                        .HasForeignKey("RoutedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.Department", "RoutedToDepartment")
+                        .WithMany()
+                        .HasForeignKey("RoutedToDepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DeptHead");
+
+                    b.Navigation("Document");
+
+                    b.Navigation("ResolutionManager");
+
+                    b.Navigation("RoutedBy");
+
+                    b.Navigation("RoutedToDepartment");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoRecipient", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.MemoDetail", "Memo")
+                        .WithMany("Recipients")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Memo");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderComment", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.OrderDetail", "Order")
+                        .WithMany("Comments")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderCoordinator", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.OrderDetail", "Order")
+                        .WithMany("Coordinators")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderDetail", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "DeptHead")
+                        .WithMany()
+                        .HasForeignKey("DeptHeadId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.Document", "Document")
+                        .WithOne()
+                        .HasForeignKey("ATG.Platform.Domain.Entities.OrderDetail", "DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "FirstDeputy")
+                        .WithMany()
+                        .HasForeignKey("FirstDeputyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "GeneralDirector")
+                        .WithMany()
+                        .HasForeignKey("GeneralDirectorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "LegalHead")
+                        .WithMany()
+                        .HasForeignKey("LegalHeadId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "SupervisingDeputy")
+                        .WithMany()
+                        .HasForeignKey("SupervisingDeputyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DeptHead");
+
+                    b.Navigation("Document");
+
+                    b.Navigation("FirstDeputy");
+
+                    b.Navigation("GeneralDirector");
+
+                    b.Navigation("LegalHead");
+
+                    b.Navigation("SupervisingDeputy");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderRecipient", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.OrderDetail", "Order")
+                        .WithMany("Recipients")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Organization", b =>
                 {
                     b.HasOne("ATG.Platform.Domain.Entities.Organization", "Parent")
@@ -2004,6 +3919,159 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OutgoingLetterComment", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.OutgoingLetterDetail", "Letter")
+                        .WithMany("Comments")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Letter");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OutgoingLetterCoordinator", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.OutgoingLetterDetail", "Letter")
+                        .WithMany("Coordinators")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Letter");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OutgoingLetterDetail", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "DeptHead")
+                        .WithMany()
+                        .HasForeignKey("DeptHeadId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.Document", "Document")
+                        .WithOne()
+                        .HasForeignKey("ATG.Platform.Domain.Entities.OutgoingLetterDetail", "DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "FirstDeputy")
+                        .WithMany()
+                        .HasForeignKey("FirstDeputyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "GeneralDirector")
+                        .WithMany()
+                        .HasForeignKey("GeneralDirectorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "SupervisingDeputy")
+                        .WithMany()
+                        .HasForeignKey("SupervisingDeputyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("DeptHead");
+
+                    b.Navigation("Document");
+
+                    b.Navigation("FirstDeputy");
+
+                    b.Navigation("GeneralDirector");
+
+                    b.Navigation("SupervisingDeputy");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementContractsDomStepApprover", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.ProcurementRequestDetail", "Request")
+                        .WithMany("ContractsDomStepApprovers")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementContractsDomStepFile", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.ProcurementRequestDetail", "Request")
+                        .WithMany("ContractsDomStepFiles")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("UploadedBy");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementContractsIntStepApprover", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.ProcurementRequestDetail", "Request")
+                        .WithMany("ContractsIntStepApprovers")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementContractsIntStepFile", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.ProcurementRequestDetail", "Request")
+                        .WithMany("ContractsIntStepFiles")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Request");
+
+                    b.Navigation("UploadedBy");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementMarketingPlanApprover", b =>
@@ -2065,6 +4133,16 @@ namespace ATG.Platform.Infrastructure.Migrations
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementRequestDetail", b =>
                 {
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ContractsDomContractsAdminUser")
+                        .WithMany()
+                        .HasForeignKey("ContractsDomContractsAdminUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ContractsIntSecretariatUser")
+                        .WithMany()
+                        .HasForeignKey("ContractsIntSecretariatUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ATG.Platform.Domain.Entities.User", "ContractsSpecialist")
                         .WithMany()
                         .HasForeignKey("ContractsSpecialistId")
@@ -2091,6 +4169,20 @@ namespace ATG.Platform.Infrastructure.Migrations
                         .HasForeignKey("MarketingSpecialistId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "PaymentSpecialist")
+                        .WithMany()
+                        .HasForeignKey("PaymentSpecialistId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "TasResponsible")
+                        .WithMany()
+                        .HasForeignKey("TasResponsibleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ContractsDomContractsAdminUser");
+
+                    b.Navigation("ContractsIntSecretariatUser");
+
                     b.Navigation("ContractsSpecialist");
 
                     b.Navigation("Document");
@@ -2100,6 +4192,10 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("InitiatorDepartment");
 
                     b.Navigation("MarketingSpecialist");
+
+                    b.Navigation("PaymentSpecialist");
+
+                    b.Navigation("TasResponsible");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementStepComment", b =>
@@ -2119,6 +4215,23 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.ProcurementWorkflowRoleAssignment", b =>
+                {
+                    b.HasOne("ATG.Platform.Domain.Entities.Department", "EngineerDepartment")
+                        .WithMany()
+                        .HasForeignKey("EngineerDepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ATG.Platform.Domain.Entities.User", "ManagerUser")
+                        .WithMany()
+                        .HasForeignKey("ManagerUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("EngineerDepartment");
+
+                    b.Navigation("ManagerUser");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.RefreshToken", b =>
@@ -2303,11 +4416,34 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Activities");
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripDeptWorkflow", b =>
+                {
+                    b.Navigation("Tiers");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripRequestDetail", b =>
+                {
+                    b.Navigation("Approvers");
+
+                    b.Navigation("Signatures");
+
+                    b.Navigation("Travelers");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.HrBusinessTripWorkflowTier", b =>
+                {
+                    b.Navigation("Initiators");
+
+                    b.Navigation("Steps");
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.HrLeaveRequestDetail", b =>
                 {
                     b.Navigation("Approvers");
 
                     b.Navigation("Items");
+
+                    b.Navigation("Signatures");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.IncomingLetterDetail", b =>
@@ -2330,6 +4466,24 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("RfqDispatches");
                 });
 
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.MemoDetail", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("Coordinators");
+
+                    b.Navigation("Recipients");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OrderDetail", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("Coordinators");
+
+                    b.Navigation("Recipients");
+                });
+
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Organization", b =>
                 {
                     b.Navigation("Children");
@@ -2337,6 +4491,13 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Departments");
 
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("ATG.Platform.Domain.Entities.OutgoingLetterDetail", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("Coordinators");
                 });
 
             modelBuilder.Entity("ATG.Platform.Domain.Entities.Position", b =>
@@ -2349,6 +4510,14 @@ namespace ATG.Platform.Infrastructure.Migrations
                     b.Navigation("Approvers");
 
                     b.Navigation("Attachments");
+
+                    b.Navigation("ContractsDomStepApprovers");
+
+                    b.Navigation("ContractsDomStepFiles");
+
+                    b.Navigation("ContractsIntStepApprovers");
+
+                    b.Navigation("ContractsIntStepFiles");
 
                     b.Navigation("MarketingPlanApprovers");
 

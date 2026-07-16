@@ -1,16 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useLocale } from "next-intl";
-import { ExternalLink, Globe, Loader2, Upload, Gavel } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, Globe, Loader2, Upload, Gavel, Download } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
+import { downloadMarketingFile } from "@/lib/files";
 import {
-  MarketingRecord,
   MarketingRfqChannelRequest,
   rfqChannelLabel,
   uploadMarketingFile,
 } from "@/lib/marketing";
+import {
+  marketingRecordKey,
+  useInvalidateMarketingRecord,
+  useMarketingRecord,
+} from "@/lib/hooks/useMarketingRecord";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -21,37 +27,31 @@ interface Props {
   t: (key: string) => string;
 }
 
+export function MarketingStep3RfqPanel(props: Props) {
+  return <MarketingStep4RfqPanel {...props} />;
+}
+
 export function MarketingStep4RfqPanel({ documentId, canEdit, acting, t }: Props) {
   const locale = useLocale();
-  const [record, setRecord] = useState<MarketingRecord | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const invalidateRecord = useInvalidateMarketingRecord(documentId);
+  const { data: record, isLoading: loading } = useMarketingRecord(documentId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [commercialDeadline, setCommercialDeadline] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const r = await api.get(`/marketing/records/by-document/${documentId}`);
-      setRecord(r.data);
-    } catch (err) {
-      setError(getApiErrorMessage(err, t("loadError")));
-    } finally {
-      setLoading(false);
-    }
-  }, [documentId, t]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const patchRecord = (data: NonNullable<typeof record>) => {
+    queryClient.setQueryData(marketingRecordKey(documentId), data);
+  };
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError("");
     try {
       await fn();
-      await load();
+      await invalidateRecord();
     } catch (err) {
       setError(getApiErrorMessage(err, t("error")));
     } finally {
@@ -68,7 +68,7 @@ export function MarketingStep4RfqPanel({ documentId, canEdit, acting, t }: Props
         storageKey: uploaded.key,
         fileName: file.name,
       });
-      setRecord(r.data);
+      patchRecord(r.data);
     } catch (err) {
       setError(getApiErrorMessage(err, t("uploadError")));
     } finally {
@@ -83,6 +83,35 @@ export function MarketingStep4RfqPanel({ documentId, canEdit, acting, t }: Props
   const openTender = () => run(() =>
     api.post(`/marketing/records/by-document/${documentId}/rfq/channels/tenderweek`).then(() => {})
   );
+
+  const completeTender = () => run(() =>
+    api.post(`/marketing/records/by-document/${documentId}/rfq/channels/tenderweek/complete`).then(() => {})
+  );
+
+  const registerAndGenerate = () => run(async () => {
+    const deadline = commercialDeadline || record?.rfqCommercialProposalDeadline?.slice(0, 10);
+    if (!deadline) {
+      setError(t("commercialDeadlineRequired"));
+      return;
+    }
+    const r = await api.post(`/marketing/records/by-document/${documentId}/rfq/register-generate`, {
+      commercialProposalDeadline: deadline,
+    });
+    patchRecord(r.data);
+  });
+
+  const onDownload = async () => {
+    if (!record?.rfqDocumentStorageKey) return;
+    setDownloading(true);
+    setError("");
+    try {
+      await downloadMarketingFile(record.rfqDocumentStorageKey, record.rfqDocumentFileName);
+    } catch (err) {
+      setError(getApiErrorMessage(err, t("downloadError")));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -110,15 +139,65 @@ export function MarketingStep4RfqPanel({ documentId, canEdit, acting, t }: Props
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
+      {(record.portalNumber?.startsWith("ATG-CP-") ?? false) && (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/45">{t("registrationNumber")}</p>
+          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 mt-0.5 font-mono">{record.portalNumber}</p>
+        </div>
+      )}
+
+      {canEdit && (
+        <div className="rounded-lg border border-border/60 p-3 space-y-3">
+          <Field label={t("commercialDeadline")}>
+            <input
+              type="date"
+              className={inputClass}
+              value={commercialDeadline || record.rfqCommercialProposalDeadline?.slice(0, 10) || ""}
+              onChange={(e) => setCommercialDeadline(e.target.value)}
+              required
+            />
+          </Field>
+          <Button
+            size="sm"
+            disabled={acting || busy || !(commercialDeadline || record.rfqCommercialProposalDeadline)}
+            onClick={registerAndGenerate}
+          >
+            {busy ? <Loader2 size={14} className="animate-spin mr-1.5" /> : null}
+            {busy ? t("generatingRfq") : record.rfqDocumentStorageKey ? t("regenerateRfq") : t("generateRfq")}
+          </Button>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border/60 p-3 space-y-2">
         <p className="text-xs font-semibold text-foreground/70">{t("rfqDocument")}</p>
         {record.rfqDocumentFileName ? (
-          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
-            <Upload size={14} />
-            {record.rfqDocumentFileName}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 font-mono">
+              {record.rfqDocumentFileName}
+            </p>
+            {record.rfqDocumentStorageKey && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={acting || downloading || busy}
+                onClick={onDownload}
+              >
+                {downloading ? (
+                  <Loader2 size={14} className="animate-spin mr-1.5" />
+                ) : (
+                  <Download size={14} className="mr-1.5" />
+                )}
+                {downloading ? t("downloading") : t("downloadRfq")}
+              </Button>
+            )}
+          </div>
         ) : (
           <p className="text-xs text-amber-700/90">{t("rfqDocumentRequired")}</p>
+        )}
+        {record.rfqCommercialProposalDeadline && (
+          <p className="text-xs text-foreground/55">
+            {t("commercialDeadline")}: {new Date(record.rfqCommercialProposalDeadline).toLocaleDateString(locale)}
+          </p>
         )}
         {canEdit && (
           <div>
@@ -147,7 +226,7 @@ export function MarketingStep4RfqPanel({ documentId, canEdit, acting, t }: Props
         )}
       </div>
 
-      {canEdit && record.rfqDocumentStorageKey && (
+      {canEdit && record.rfqDocumentStorageKey && channels.length === 0 && (
         <div className="grid sm:grid-cols-2 gap-2">
           <Button
             size="sm"
@@ -176,7 +255,16 @@ export function MarketingStep4RfqPanel({ documentId, canEdit, acting, t }: Props
         <div className="space-y-2">
           <p className="text-xs font-semibold text-foreground/70">{t("channelRequests")}</p>
           {channels.map((ch) => (
-            <ChannelCard key={ch.id} channel={ch} locale={locale} t={t} />
+            <ChannelCard
+              key={ch.id}
+              channel={ch}
+              locale={locale}
+              t={t}
+              canEdit={canEdit}
+              acting={acting}
+              busy={busy}
+              onCompleteTender={completeTender}
+            />
           ))}
         </div>
       )}
@@ -194,14 +282,31 @@ export function MarketingStep4RfqPanel({ documentId, canEdit, acting, t }: Props
   );
 }
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-foreground/45 mb-1.5 block">{label}</label>
+      {children}
+    </div>
+  );
+}
+
 function ChannelCard({
   channel,
   locale,
   t,
+  canEdit,
+  acting,
+  busy,
+  onCompleteTender,
 }: {
   channel: MarketingRfqChannelRequest;
   locale: string;
   t: (key: string) => string;
+  canEdit: boolean;
+  acting: boolean;
+  busy: boolean;
+  onCompleteTender: () => void;
 }) {
   const done = channel.status === "Completed";
   const isAtg = channel.channel === "AtgWebsite";
@@ -234,8 +339,13 @@ function ChannelCard({
       </div>
       {!done && (
         <p className="text-xs text-foreground/50 mt-2 leading-relaxed">
-          {isAtg ? t("atgCloseHint") : t("tenderCloseHint")}
+          {isAtg ? t("atgCloseHint") : t("tenderEngineerHint")}
         </p>
+      )}
+      {!done && !isAtg && canEdit && (
+        <Button size="sm" variant="secondary" className="mt-2" disabled={acting || busy} onClick={onCompleteTender}>
+          {t("tenderComplete")}
+        </Button>
       )}
       {channel.helpDeskTicketId && (
         <Link

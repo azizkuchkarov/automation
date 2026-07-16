@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { LayoutDashboard, Users, Building2, FolderTree, Briefcase, ScrollText, GitBranch, Headset, FileStack } from "lucide-react";
+import { LayoutDashboard, Users, Building2, FolderTree, Briefcase, ScrollText, GitBranch, Headset, FileStack, FileSignature, Cpu, Plane } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -13,6 +13,9 @@ const items = [
   { href: "/admin/hierarchy", icon: GitBranch, key: "hierarchy" },
   { href: "/admin/departments", icon: FolderTree, key: "departments" },
   { href: "/admin/positions", icon: Briefcase, key: "positions" },
+  { href: "/admin/procurement-roles", icon: FileSignature, key: "procurementRolesNav" },
+  { href: "/admin/hr-business-trip-workflow", icon: Plane, key: "hrBusinessTripWorkflowNav" },
+  { href: "/admin/it-automation-roles", icon: Cpu, key: "itAutomationRolesNav" },
   { href: "/admin/audit", icon: ScrollText, key: "audit" },
   { href: "/admin/helpdesk", icon: Headset, key: "helpdeskControl" },
   { href: "/admin/dcs", icon: FileStack, key: "dcsControl" },

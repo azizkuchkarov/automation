@@ -37,5 +37,7 @@ export async function fetchMe() {
   }
 
   const { data } = await api.get<AuthUser>("/auth/me");
-  return normalizeUser(data);
+  const user = normalizeUser(data);
+  useAuthStore.getState().setAuth(useAuthStore.getState().accessToken!, user);
+  return user;
 }

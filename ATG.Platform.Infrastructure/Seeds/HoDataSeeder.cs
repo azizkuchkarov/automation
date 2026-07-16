@@ -10,9 +10,24 @@ public static class HoDataSeeder
 {
     private static readonly Dictionary<string, string> LocalDevPasswords = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["m.yugay@atg.uz"] = "12345",
+        ["m.azizov@atg.uz"] = "12345",
+        ["a.lebedev@atg.uz"] = "12345",
+        ["a.kuchkarov@atg.uz"] = "12345",
+        ["g.rakhmatullaeva@atg.uz"] = "12345",
+        ["a.khamroev@atg.uz"] = "12345",
+        ["v.khusenov@atg.uz"] = "12345",
         ["pangshubao@atg.uz"] = "12345",
+        ["user1@atg.uz"] = "12345",
         ["user2@atg.uz"] = "12345",
         ["user3@atg.uz"] = "12345",
+        ["user4@atg.uz"] = "12345",
+        ["user5@atg.uz"] = "12345",
+        ["user6@atg.uz"] = "12345",
+        ["user7@atg.uz"] = "12345",
+        ["user8@atg.uz"] = "12345",
+        ["user9@atg.uz"] = "12345",
+        ["user10@atg.uz"] = "12345",
     };
 
     public static async Task SeedAsync(IServiceProvider services)
@@ -96,8 +111,11 @@ public static class HoDataSeeder
                 staffUpdated++;
             }
 
-            if (LocalDevPasswords.TryGetValue(email, out var devPassword))
+            if (LocalDevPasswords.TryGetValue(email, out var devPassword)
+                && (string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(devPassword, user.PasswordHash)))
+            {
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(devPassword, 12);
+            }
         }
 
         var admin = await db.Users.FirstOrDefaultAsync(u => u.Email == "admin@atg.uz");

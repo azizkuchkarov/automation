@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import api, { getApiErrorMessage } from "@/lib/api";
 import {
-  MarketingRecord,
   MarketingRequestCategory,
   categoryLabel,
   deadlineColorClass,
 } from "@/lib/marketing";
+import {
+  marketingRecordKey,
+  useMarketingRecord,
+} from "@/lib/hooks/useMarketingRecord";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -20,31 +24,22 @@ interface Props {
 export function MarketingRecordPanel({ documentId, canManage }: Props) {
   const t = useTranslations("dcs.request");
   const locale = useLocale();
-  const [record, setRecord] = useState<MarketingRecord | null>(null);
+  const queryClient = useQueryClient();
+  const { data: record, isLoading: loading } = useMarketingRecord(documentId);
   const [category, setCategory] = useState<MarketingRequestCategory>(2);
-  const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState("");
 
-  const load = () => {
-    setLoading(true);
-    api
-      .get(`/marketing/records/by-document/${documentId}`)
-      .then((r) => setRecord(r.data))
-      .catch(() => setRecord(null))
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    load();
-  }, [documentId]);
+    if (record?.requestCategory) setCategory(record.requestCategory);
+  }, [record?.requestCategory]);
 
   const saveCategory = async () => {
     setActing(true);
     setError("");
     try {
       const r = await api.put(`/marketing/records/by-document/${documentId}/category`, { category });
-      setRecord(r.data);
+      queryClient.setQueryData(marketingRecordKey(documentId), r.data);
     } catch (err) {
       setError(getApiErrorMessage(err, t("error")));
     } finally {

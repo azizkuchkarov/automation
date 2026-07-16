@@ -17,9 +17,11 @@ public class MarketingController(IMarketingService marketing, IFileStorageServic
         [FromQuery] MarketingRecordStatus? status,
         [FromQuery] Guid? executorId,
         [FromQuery] MarketingRequestCategory? category,
-        CancellationToken ct)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
     {
-        var result = await marketing.GetRecordsAsync(GetUserId()!.Value, status, executorId, category, ct);
+        var result = await marketing.GetRecordsAsync(GetUserId()!.Value, status, executorId, category, page, pageSize, ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -79,6 +81,13 @@ public class MarketingController(IMarketingService marketing, IFileStorageServic
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("records/by-document/{documentId:guid}/rfq/register-generate")]
+    public async Task<IActionResult> RegisterAndGenerateRfq(Guid documentId, [FromBody] RegisterRfqStep3Request request, CancellationToken ct)
+    {
+        var result = await marketing.RegisterAndGenerateRfqAsync(documentId, request, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("records/by-document/{documentId:guid}/rfq/channels/atg-website")]
     public async Task<IActionResult> OpenAtgWebsiteChannel(Guid documentId, CancellationToken ct)
     {
@@ -90,6 +99,13 @@ public class MarketingController(IMarketingService marketing, IFileStorageServic
     public async Task<IActionResult> OpenTenderChannel(Guid documentId, CancellationToken ct)
     {
         var result = await marketing.OpenRfqTenderChannelAsync(documentId, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("records/by-document/{documentId:guid}/rfq/channels/tenderweek/complete")]
+    public async Task<IActionResult> CompleteTenderChannel(Guid documentId, CancellationToken ct)
+    {
+        var result = await marketing.CompleteRfqTenderChannelAsync(documentId, GetUserId()!.Value, ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -114,6 +130,20 @@ public class MarketingController(IMarketingService marketing, IFileStorageServic
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("offers/{offerId:guid}/initiator-review")]
+    public async Task<IActionResult> ReviewOfferByInitiator(Guid offerId, [FromBody] ReviewMarketingOfferRequest request, CancellationToken ct)
+    {
+        var result = await marketing.ReviewOfferByInitiatorAsync(offerId, request, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("offers/{offerId:guid}/engineer-review")]
+    public async Task<IActionResult> ReviewOfferByEngineer(Guid offerId, [FromBody] ReviewMarketingOfferRequest request, CancellationToken ct)
+    {
+        var result = await marketing.ReviewOfferByEngineerAsync(offerId, request, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     [HttpPut("offers/{offerId:guid}/compliance")]
     public async Task<IActionResult> UpdateOfferCompliance(Guid offerId, [FromBody] UpdateOfferComplianceRequest request, CancellationToken ct)
     {
@@ -125,6 +155,30 @@ public class MarketingController(IMarketingService marketing, IFileStorageServic
     public async Task<IActionResult> UpdateOfferAffiliation(Guid offerId, [FromBody] UpdateOfferAffiliationRequest request, CancellationToken ct)
     {
         var result = await marketing.UpdateOfferAffiliationAsync(offerId, request, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("records/by-document/{documentId:guid}/plan/register-generate")]
+    public async Task<IActionResult> RegisterAndGeneratePlan(Guid documentId, [FromBody] RegisterMarketingPlanRequest request, CancellationToken ct)
+    {
+        var result = await marketing.RegisterAndGeneratePlanAsync(documentId, request, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("records/by-document/{documentId:guid}/plan/download-template")]
+    public async Task<IActionResult> DownloadPlanTemplate(Guid documentId, CancellationToken ct)
+    {
+        var result = await marketing.DownloadPlanTemplateAsync(documentId, GetUserId()!.Value, ct);
+        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        return File(result.Data!.Bytes,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            result.Data!.FileName);
+    }
+
+    [HttpPost("records/by-document/{documentId:guid}/plan/document")]
+    public async Task<IActionResult> UploadPlanDocument(Guid documentId, [FromBody] UploadMarketingPlanDocumentRequest request, CancellationToken ct)
+    {
+        var result = await marketing.UploadPlanDocumentAsync(documentId, request, GetUserId()!.Value, ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -209,11 +263,12 @@ public class MarketingController(IMarketingService marketing, IFileStorageServic
     }
 
     [HttpGet("files/{*key}")]
-    public async Task<IActionResult> DownloadFile(string key, CancellationToken ct)
+    public async Task<IActionResult> DownloadFile(string key, [FromQuery] string? fileName, CancellationToken ct)
     {
         var result = await files.DownloadAsync(key, ct);
         if (result is null) return NotFound();
-        return File(result.Value.Stream, result.Value.ContentType, Path.GetFileName(key));
+        var downloadName = ATG.Platform.Infrastructure.Storage.FileDownloadNames.Resolve(key, fileName);
+        return File(result.Value.Stream, result.Value.ContentType, downloadName);
     }
 
     private Guid? GetUserId()

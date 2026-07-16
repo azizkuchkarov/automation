@@ -1,4 +1,5 @@
 using ATG.Platform.Domain.Entities;
+using ATG.Platform.Domain.Enums;
 using ATG.Platform.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +48,7 @@ public static class BmgmcDataSeeder
 
             var phone = FormatPhone(member.Phone, member.InternalExt);
             var email = member.Email.ToLowerInvariant();
+
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
 
             if (user is null)
@@ -99,6 +101,7 @@ public static class BmgmcDataSeeder
         }
 
         await db.SaveChangesAsync();
+
         logger.LogInformation("BMGMC sync complete: {Created} users created, {Updated} updated", staffCreated, staffUpdated);
     }
 

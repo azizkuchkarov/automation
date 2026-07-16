@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ATG.Platform.Application.DTOs;
 using ATG.Platform.Application.Interfaces;
+using ATG.Platform.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -119,10 +120,160 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("{id:guid}/contracts/route-section")]
+    public async Task<IActionResult> RouteContractsSection(
+        Guid id, [FromBody] RouteContractsSectionRequest request, CancellationToken ct)
+    {
+        var result = await requests.RouteContractsSectionAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("{id:guid}/contracts/accept")]
     public async Task<IActionResult> AcceptContracts(Guid id, [FromBody] AcceptContractsRequest request, CancellationToken ct)
     {
         var result = await requests.AcceptContractsAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/int/select-variant")]
+    public async Task<IActionResult> SelectContractsIntVariant(
+        Guid id, [FromBody] SelectContractsIntVariantRequest request, CancellationToken ct)
+    {
+        var result = await requests.SelectContractsIntVariantAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/int/steps/{step:int}/complete")]
+    public async Task<IActionResult> CompleteContractsIntStep(
+        Guid id, int step, [FromBody] CompleteContractsIntStepRequest request, CancellationToken ct)
+    {
+        var result = await requests.CompleteContractsIntStepAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/int/steps/{step:int}/files")]
+    public async Task<IActionResult> AddContractsIntStepFile(
+        Guid id, int step, [FromBody] ContractsIntStepFileInput request, CancellationToken ct)
+    {
+        var result = await requests.AddContractsIntStepFileAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/int/steps/{step:int}/approvers")]
+    public async Task<IActionResult> SubmitContractsIntStepApprovers(
+        Guid id, int step, [FromBody] SubmitContractsIntStepApproversRequest request, CancellationToken ct)
+    {
+        var result = await requests.SubmitContractsIntStepApproversAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/int/steps/{step:int}/approvers/decide")]
+    public async Task<IActionResult> DecideContractsIntStepApproval(
+        Guid id, int step, [FromBody] DecideContractsIntStepApprovalRequest request, CancellationToken ct)
+    {
+        var result = await requests.DecideContractsIntStepApprovalAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/int/steps/{step:int}/send-secretariat")]
+    public async Task<IActionResult> SendContractsIntToSecretariat(
+        Guid id, int step, [FromBody] SendContractsIntToSecretariatRequest request, CancellationToken ct)
+    {
+        var result = await requests.SendContractsIntToSecretariatAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/select-variant")]
+    public async Task<IActionResult> SelectContractsDomVariant(
+        Guid id, [FromBody] SelectContractsDomVariantRequest request, CancellationToken ct)
+    {
+        var result = await requests.SelectContractsDomVariantAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/steps/{step:int}/complete")]
+    public async Task<IActionResult> CompleteContractsDomStep(
+        Guid id, int step, [FromBody] CompleteContractsDomStepRequest request, CancellationToken ct)
+    {
+        var result = await requests.CompleteContractsDomStepAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/steps/{step:int}/schedule")]
+    public async Task<IActionResult> ScheduleContractsDomStep(
+        Guid id, int step, [FromBody] ScheduleContractsDomStepRequest request, CancellationToken ct)
+    {
+        var result = await requests.ScheduleContractsDomStepAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/steps/{step:int}/files")]
+    public async Task<IActionResult> AddContractsDomStepFile(
+        Guid id, int step, [FromBody] ContractsDomStepFileInput request, CancellationToken ct)
+    {
+        var result = await requests.AddContractsDomStepFileAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/steps/{step:int}/approvers")]
+    public async Task<IActionResult> SubmitContractsDomStepApprovers(
+        Guid id, int step, [FromBody] SubmitContractsDomStepApproversRequest request, CancellationToken ct)
+    {
+        var result = await requests.SubmitContractsDomStepApproversAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/steps/{step:int}/approvers/decide")]
+    public async Task<IActionResult> DecideContractsDomStepApproval(
+        Guid id, int step, [FromBody] DecideContractsDomStepApprovalRequest request, CancellationToken ct)
+    {
+        var result = await requests.DecideContractsDomStepApprovalAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/steps/{step:int}/send-contracts-admin")]
+    public async Task<IActionResult> SendContractsDomToContractsAdmin(
+        Guid id, int step, [FromBody] SendContractsDomToContractsAdminRequest request, CancellationToken ct)
+    {
+        var result = await requests.SendContractsDomToContractsAdminAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/steps/{step:int}/return-marketing")]
+    public async Task<IActionResult> ReturnContractsDomToMarketing(
+        Guid id, int step, [FromBody] ReturnContractsDomToMarketingRequest request, CancellationToken ct)
+    {
+        var result = await requests.ReturnContractsDomToMarketingAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/contracts/dom/steps/{step:int}/rollback")]
+    public async Task<IActionResult> RollbackContractsDomStep(
+        Guid id, int step, [FromBody] RollbackContractsDomStepRequest request, CancellationToken ct)
+    {
+        var result = await requests.RollbackContractsDomStepAsync(id, step, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("payment/workers")]
+    public async Task<IActionResult> GetPaymentWorkers(CancellationToken ct)
+    {
+        var result = await requests.GetPaymentWorkersAsync(GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/payment/assign")]
+    public async Task<IActionResult> AssignPaymentSpecialist(
+        Guid id, [FromBody] AssignContractsSpecialistRequest request, CancellationToken ct)
+    {
+        var result = await requests.AssignPaymentSpecialistAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/payment/accept")]
+    public async Task<IActionResult> AcceptPayment(Guid id, [FromBody] AcceptContractsRequest request, CancellationToken ct)
+    {
+        var result = await requests.AcceptPaymentAsync(id, request, GetUserId()!.Value, GetIp(), ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -137,9 +288,43 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
     public IActionResult GetMarketingSteps() => Ok(requests.GetMarketingSteps());
 
     [HttpGet("marketing/queue")]
-    public async Task<IActionResult> GetMarketingQueue(CancellationToken ct)
+    public async Task<IActionResult> GetMarketingQueue(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] ProcurementMarketingSubPhase? subPhase = null,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
     {
-        var result = await requests.GetMarketingQueueAsync(GetUserId()!.Value, ct);
+        var result = await requests.GetMarketingQueueAsync(GetUserId()!.Value, page, pageSize, subPhase, search, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("marketing/queue/summary")]
+    public async Task<IActionResult> GetMarketingQueueSummary(CancellationToken ct)
+    {
+        var result = await requests.GetMarketingQueueSummaryAsync(GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("contracts/queue")]
+    public async Task<IActionResult> GetContractsQueue(
+        [FromQuery] ContractsProcurementSectionType? section = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null,
+        CancellationToken ct = default)
+    {
+        var result = await requests.GetContractsQueueAsync(
+            GetUserId()!.Value, section, page, pageSize, search, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("contracts/board")]
+    public async Task<IActionResult> GetContractsBoard(
+        [FromQuery] ContractsProcurementSectionType section,
+        CancellationToken ct = default)
+    {
+        var result = await requests.GetContractsBoardAsync(GetUserId()!.Value, section, ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -161,6 +346,13 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
     public async Task<IActionResult> AssignMarketingSpecialist(Guid id, [FromBody] AssignMarketingSpecialistRequest request, CancellationToken ct)
     {
         var result = await requests.AssignMarketingSpecialistAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/marketing/return-to-initiator")]
+    public async Task<IActionResult> ReturnMarketingToInitiator(Guid id, [FromBody] ReturnMarketingToInitiatorRequest request, CancellationToken ct)
+    {
+        var result = await requests.ReturnMarketingToInitiatorAsync(id, request, GetUserId()!.Value, GetIp(), ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -227,6 +419,23 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpGet("admin/workflow-roles")]
+    [Authorize(Roles = "SuperAdmin,HOTopManager")]
+    public async Task<IActionResult> GetWorkflowRolesAdmin(CancellationToken ct)
+    {
+        var result = await requests.GetWorkflowRolesAdminAsync(GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPut("admin/workflow-roles/{roleKey}")]
+    [Authorize(Roles = "SuperAdmin,HOTopManager")]
+    public async Task<IActionResult> UpdateWorkflowRole(
+        string roleKey, [FromBody] UpdateProcurementWorkflowRoleRequest request, CancellationToken ct)
+    {
+        var result = await requests.UpdateWorkflowRoleAsync(GetUserId()!.Value, roleKey, request, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("files/upload")]
     [RequestSizeLimit(52_428_800)]
     public async Task<IActionResult> UploadFile(IFormFile file, [FromQuery] string folder = "documents", CancellationToken ct = default)
@@ -238,11 +447,12 @@ public class ProcurementRequestController(IProcurementRequestService requests, I
     }
 
     [HttpGet("files/{*key}")]
-    public async Task<IActionResult> DownloadFile(string key, CancellationToken ct)
+    public async Task<IActionResult> DownloadFile(string key, [FromQuery] string? fileName, CancellationToken ct)
     {
         var result = await files.DownloadAsync(key, ct);
         if (result is null) return NotFound();
-        return File(result.Value.Stream, result.Value.ContentType, Path.GetFileName(key));
+        var downloadName = ATG.Platform.Infrastructure.Storage.FileDownloadNames.Resolve(key, fileName);
+        return File(result.Value.Stream, result.Value.ContentType, downloadName);
     }
 
     private Guid? GetUserId()

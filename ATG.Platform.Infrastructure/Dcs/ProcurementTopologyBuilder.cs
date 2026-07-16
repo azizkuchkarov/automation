@@ -28,9 +28,11 @@ public static class ProcurementTopologyBuilder
         var marketingDone = phase is ProcurementRequestPhase.Contracts or ProcurementRequestPhase.Completed
             || (phase == ProcurementRequestPhase.Marketing && detail.MarketingSubPhase == ProcurementMarketingSubPhase.Completed);
         var marketingActive = phase == ProcurementRequestPhase.Marketing && !marketingDone;
-        var marketingStep = phase == ProcurementRequestPhase.Marketing
-            ? Math.Min(detail.MarketingCurrentStep, MarketingRequestSteps.TotalSteps)
-            : 0;
+        var marketingStep = marketingDone
+            ? MarketingRequestSteps.TotalSteps
+            : phase == ProcurementRequestPhase.Marketing
+                ? Math.Clamp(detail.MarketingCurrentStep, 1, MarketingRequestSteps.TotalSteps)
+                : 0;
         var marketingAssignee = marketingActive || marketingDone
             ? detail.MarketingSpecialist?.FullName ?? detail.Document.Assignee?.FullName
             : null;

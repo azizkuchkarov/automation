@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import api from "@/lib/api";
-import { MarketingRecord } from "@/lib/marketing";
+import { useQueryClient } from "@tanstack/react-query";
 import { MarketingRfqTab } from "@/components/dcs/MarketingRfqTab";
 import { MarketingKpTab } from "@/components/dcs/MarketingKpTab";
+import { marketingRecordKey, useMarketingRecord } from "@/lib/hooks/useMarketingRecord";
+import type { MarketingRecord } from "@/lib/marketing";
 import { cn } from "@/lib/utils";
 
 type SubTab = "rfq" | "kp";
@@ -17,22 +18,13 @@ interface Props {
 
 export function MarketingDetailTabs({ documentId, canEdit }: Props) {
   const t = useTranslations("dcs.marketing");
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<SubTab>("rfq");
-  const [record, setRecord] = useState<MarketingRecord | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: record, isLoading: loading } = useMarketingRecord(documentId);
 
-  const load = () => {
-    setLoading(true);
-    api
-      .get(`/marketing/records/by-document/${documentId}`)
-      .then((r) => setRecord(r.data))
-      .catch(() => setRecord(null))
-      .finally(() => setLoading(false));
+  const onUpdated = (next: MarketingRecord) => {
+    queryClient.setQueryData(marketingRecordKey(documentId), next);
   };
-
-  useEffect(() => {
-    load();
-  }, [documentId]);
 
   if (loading) return <p className="text-sm text-foreground/40">{t("loading")}</p>;
   if (!record) return null;
@@ -54,7 +46,7 @@ export function MarketingDetailTabs({ documentId, canEdit }: Props) {
               "px-4 py-2 rounded-lg text-sm font-medium transition-all",
               tab === item.id
                 ? "bg-pink-500/10 text-pink-700 dark:text-pink-300 ring-1 ring-pink-500/20"
-                : "text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]"
+                : "text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]",
             )}
           >
             {item.label}
@@ -63,9 +55,9 @@ export function MarketingDetailTabs({ documentId, canEdit }: Props) {
       </div>
       <div className="p-5">
         {tab === "rfq" ? (
-          <MarketingRfqTab documentId={documentId} record={record} canEdit={canEdit} onUpdated={setRecord} />
+          <MarketingRfqTab documentId={documentId} record={record} canEdit={canEdit} onUpdated={onUpdated} />
         ) : (
-          <MarketingKpTab documentId={documentId} record={record} canEdit={canEdit} onUpdated={setRecord} />
+          <MarketingKpTab documentId={documentId} record={record} canEdit={canEdit} onUpdated={onUpdated} />
         )}
       </div>
     </div>

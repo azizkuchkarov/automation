@@ -1,0 +1,13 @@
+row 2: height=16.5, hidden=False
+row 3: height=15.0, hidden=False
+row 4: height=None, hidden=False
+row 5: height=15.75, hidden=False
+row 6: height=15.75, hidden=False
+row 7: height=14.25, hidden=False
+row 8: height=15.0, hidden=False
+row 9: height=15.0, hidden=False
+row 10: height=15.0, hidden=False
+D4: v=center, h=center, wrap=True, len=91
+D7: v=top, h=center, wrap=True, len=86
+E2: v=None, h=None, wrap=None, len=24
+F8: v=top, h=left, wrap=None, len=30

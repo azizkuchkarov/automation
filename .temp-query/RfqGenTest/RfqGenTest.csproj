@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\ATG.Platform.Infrastructure\ATG.Platform.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\ATG.Platform.Infrastructure\Dcs\Templates\RfqMaterial.docx" Link="Dcs\Templates\RfqMaterial.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\ATG.Platform.Infrastructure\Dcs\Templates\RfqService.docx" Link="Dcs\Templates\RfqService.docx" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

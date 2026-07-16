@@ -1,0 +1,5 @@
+cyrillic_chars=412
+has_kuchkarov_ru=False
+has_proverka=False
+has_sluzhebnaya=True
+has_question_marks=True

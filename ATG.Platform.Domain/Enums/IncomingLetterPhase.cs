@@ -2,9 +2,16 @@ namespace ATG.Platform.Domain.Enums;
 
 public enum IncomingLetterPhase
 {
+    Received,
+    TranslationPending,
+    ReadyForRegistration,
     Registered,
-    Informed,
+    AwaitingResolution,
     RoutedToDepartment,
+    AwaitingAcceptance,
     InExecution,
+    AwaitingReview,
+    NeedsRevision,
+    AwaitingArchive,
     Completed
 }

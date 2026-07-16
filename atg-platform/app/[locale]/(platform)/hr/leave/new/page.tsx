@@ -14,6 +14,8 @@ import {
   itemTypeNeedsDaysCount,
 } from "@/lib/hrLeave";
 import { Button } from "@/components/ui/Button";
+import { HrPageHeader, HrPageShell, HrPrimaryButton } from "@/components/hr/HrChrome";
+import { hrInputClass, hrTheme } from "@/components/hr/hrTheme";
 import { cn } from "@/lib/utils";
 
 type ItemRow = CreateHrLeaveItemPayload & { key: string };
@@ -40,8 +42,7 @@ export default function NewHrLeavePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const inputClass =
-    "w-full rounded-lg border border-border/80 bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/50";
+  const inputClass = hrInputClass("h-10");
 
   const updateItem = (key: string, patch: Partial<ItemRow>) => {
     setItems((prev) => prev.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -79,15 +80,12 @@ export default function NewHrLeavePage() {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <header className="shrink-0 border-b border-border/80 bg-surface px-6 py-5">
-        <h1 className="text-xl font-semibold text-foreground">{t("newTitle")}</h1>
-        <p className="text-sm text-foreground/50 mt-1">{t("newSubtitle")}</p>
-      </header>
+    <HrPageShell>
+      <HrPageHeader title={t("newTitle")} subtitle={t("newSubtitle")} />
 
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-6 py-6">
         <form
-          className="max-w-3xl space-y-6"
+          className={cn("max-w-3xl space-y-6 p-5 md:p-6", hrTheme.card)}
           onSubmit={(e) => {
             e.preventDefault();
             save(true);
@@ -224,24 +222,25 @@ export default function NewHrLeavePage() {
             </p>
           )}
 
-          <div className="flex flex-wrap gap-3 pt-2 border-t border-border/60">
-            <Button type="submit" disabled={submitting} className="bg-violet-600 hover:bg-violet-700">
+          <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-200/70">
+            <HrPrimaryButton type="submit" disabled={submitting}>
               {t("submit")}
-            </Button>
+            </HrPrimaryButton>
             <Button
               type="button"
               variant="secondary"
+              className="rounded-xl"
               disabled={submitting}
               onClick={() => save(false)}
             >
               {t("saveDraft")}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => router.back()}>
+            <Button type="button" variant="ghost" className="rounded-xl" onClick={() => router.back()}>
               {t("cancel")}
             </Button>
           </div>
         </form>
       </div>
-    </div>
+    </HrPageShell>
   );
 }

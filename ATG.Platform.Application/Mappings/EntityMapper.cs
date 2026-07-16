@@ -9,6 +9,7 @@ public static class EntityMapper
     public static UserDto ToDto(this User user) => new(
         user.Id,
         user.EmployeeId,
+        user.Pinpp,
         user.FirstName,
         user.LastName,
         user.MiddleName,
@@ -33,7 +34,10 @@ public static class EntityMapper
         user.IsActive,
         user.Language,
         user.LastLoginAt,
-        user.CreatedAt);
+        user.CreatedAt,
+        user.PassportSeries,
+        user.PassportNumber,
+        !user.ProfileCompletedAt.HasValue);
 
     public static OrganizationDto ToDto(this Organization org, int userCount = 0, IReadOnlyList<OrganizationDto>? children = null) => new(
         org.Id,

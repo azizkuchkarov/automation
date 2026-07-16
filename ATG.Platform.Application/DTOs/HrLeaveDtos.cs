@@ -40,7 +40,22 @@ public record HrLeavePermissionsDto(
     bool CanSubmit,
     bool CanHrReview,
     bool CanApprove,
+    bool CanEimzoApprove,
     bool CanReject);
+
+public record HrLeaveSignatureDto(
+    Guid Id,
+    string Kind,
+    string SignerName,
+    string? SignerPinpp,
+    DateTime SignedAt,
+    string? CertificateSerial);
+
+public record HrLeaveSigningPackageDto(
+    string JsonBase64,
+    string PdfBase64,
+    string PayloadSha256,
+    string Number);
 
 public record HrLeaveRequestDto(
     Guid Id,
@@ -62,6 +77,7 @@ public record HrLeaveRequestDto(
     IReadOnlyList<HrLeaveItemDto> Items,
     IReadOnlyList<HrLeaveApproverDto> Approvers,
     IReadOnlyList<HrLeaveTimelineEventDto> Timeline,
+    IReadOnlyList<HrLeaveSignatureDto> Signatures,
     HrLeavePermissionsDto Permissions);
 
 public record HrLeaveListItemDto(
@@ -94,4 +110,4 @@ public record UpdateHrLeaveRequestRequest(
     DateTime RequestDate,
     IReadOnlyList<CreateHrLeaveItemRequest> Items);
 
-public record HrLeaveApprovalRequest(string? Comment);
+public record HrLeaveApprovalRequest(string? Comment, string? JsonPkcs7 = null, string? PdfPkcs7 = null);

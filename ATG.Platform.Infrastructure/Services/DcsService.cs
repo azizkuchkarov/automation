@@ -30,6 +30,9 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
         if (type == DocumentType.ProcurementRequest)
             return await GetProcurementRequestsAsync(actor, actorId, view, page, pageSize, status, ct);
 
+        if (type == DocumentType.Incoming)
+            return await GetIncomingLettersAsync(actor, actorId, view, page, pageSize, status, ct);
+
         var query = DocumentQuery().Where(d => d.Type == type);
 
         query = view.ToLowerInvariant() switch
@@ -50,8 +53,47 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
             .Take(pageSize)
             .ToListAsync(ct);
 
+        Dictionary<Guid, IncomingLetterPhase>? incomingPhases = null;
+        Dictionary<Guid, OutgoingLetterPhase>? outgoingPhases = null;
+        Dictionary<Guid, MemoPhase>? memoPhases = null;
+        Dictionary<Guid, OrderPhase>? orderPhases = null;
+        if (type == DocumentType.Incoming && items.Count > 0)
+        {
+            var ids = items.Select(d => d.Id).ToList();
+            incomingPhases = await db.IncomingLetterDetails.AsNoTracking()
+                .Where(d => ids.Contains(d.DocumentId))
+                .ToDictionaryAsync(d => d.DocumentId, d => d.Phase, ct);
+        }
+        if (type == DocumentType.Outgoing && items.Count > 0)
+        {
+            var ids = items.Select(d => d.Id).ToList();
+            outgoingPhases = await db.OutgoingLetterDetails.AsNoTracking()
+                .Where(d => ids.Contains(d.DocumentId))
+                .ToDictionaryAsync(d => d.DocumentId, d => d.Phase, ct);
+        }
+        if (type == DocumentType.Memo && items.Count > 0)
+        {
+            var ids = items.Select(d => d.Id).ToList();
+            memoPhases = await db.MemoDetails.AsNoTracking()
+                .Where(d => ids.Contains(d.DocumentId))
+                .ToDictionaryAsync(d => d.DocumentId, d => d.Phase, ct);
+        }
+        if (type == DocumentType.Order && items.Count > 0)
+        {
+            var ids = items.Select(d => d.Id).ToList();
+            orderPhases = await db.OrderDetails.AsNoTracking()
+                .Where(d => ids.Contains(d.DocumentId))
+                .ToDictionaryAsync(d => d.DocumentId, d => d.Phase, ct);
+        }
+
         return Result<PagedResult<DocumentListItemDto>>.Ok(new PagedResult<DocumentListItemDto>(
-            items.Select(d => MapListItem(d)).ToList(), total, page, pageSize));
+            items.Select(d => MapListItem(
+                d,
+                null,
+                incomingPhases?.GetValueOrDefault(d.Id),
+                outgoingPhases?.GetValueOrDefault(d.Id),
+                memoPhases?.GetValueOrDefault(d.Id),
+                orderPhases?.GetValueOrDefault(d.Id))).ToList(), total, page, pageSize));
     }
 
     public async Task<Result<DocumentDto>> GetByIdAsync(Guid id, Guid actorId, CancellationToken ct = default)
@@ -77,6 +119,15 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
 
         if (request.Type == DocumentType.Incoming)
             return Result<DocumentDto>.Fail("Incoming letters must be registered via the incoming letter form");
+
+        if (request.Type == DocumentType.Outgoing)
+            return Result<DocumentDto>.Fail("Outgoing letters must be created via the outgoing letter form");
+
+        if (request.Type == DocumentType.Memo)
+            return Result<DocumentDto>.Fail("Memos must be created via the memo form");
+
+        if (request.Type == DocumentType.Order)
+            return Result<DocumentDto>.Fail("Orders must be created via the order form");
 
         var deptCode = DcsRouting.ResolveDepartmentCode(request.Type, actor.Organization.Code);
         if (deptCode is null)
@@ -267,6 +318,71 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
     private static DcsStaffDto MapStaff(User u) => new(
         u.Id, u.EmployeeId, u.FullName, u.Email, u.Role.ToString(), u.JobTitleEn, u.JobTitleRu);
 
+    private async Task<Result<PagedResult<DocumentListItemDto>>> GetIncomingLettersAsync(
+        User actor,
+        Guid actorId,
+        string view,
+        int page,
+        int pageSize,
+        DocumentStatus? status,
+        CancellationToken ct)
+    {
+        var query = DocumentQuery().Where(d => d.Type == DocumentType.Incoming);
+
+        query = view.ToLowerInvariant() switch
+        {
+            "mine" => query.Where(d => d.AuthorId == actorId || d.AssigneeId == actorId),
+            "department" => query.Where(d => d.DepartmentId == actor.DepartmentId),
+            "registry" when IsIncomingRegistrar(actor) => query.Where(d => d.OrganizationId == actor.OrganizationId),
+            "involved" => FilterIncomingInvolved(query, actor, actorId),
+            "all" when IsPlatformAdmin(actor) => query,
+            _ => FilterIncomingInvolved(query, actor, actorId),
+        };
+
+        if (status.HasValue) query = query.Where(d => d.Status == status);
+
+        var total = await query.CountAsync(ct);
+        var items = await query
+            .OrderByDescending(d => d.UpdatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        Dictionary<Guid, IncomingLetterPhase>? incomingPhases = null;
+        if (items.Count > 0)
+        {
+            var ids = items.Select(d => d.Id).ToList();
+            incomingPhases = await db.IncomingLetterDetails.AsNoTracking()
+                .Where(d => ids.Contains(d.DocumentId))
+                .ToDictionaryAsync(d => d.DocumentId, d => d.Phase, ct);
+        }
+
+        return Result<PagedResult<DocumentListItemDto>>.Ok(new PagedResult<DocumentListItemDto>(
+            items.Select(d => MapListItem(d, null, incomingPhases?.GetValueOrDefault(d.Id))).ToList(),
+            total, page, pageSize));
+    }
+
+    private IQueryable<Document> FilterIncomingInvolved(IQueryable<Document> query, User actor, Guid actorId)
+    {
+        var isDeptManager = IsDeptManager(actor);
+        var deptId = actor.DepartmentId;
+
+        return query.Where(d =>
+            d.AuthorId == actorId ||
+            d.AssigneeId == actorId ||
+            db.IncomingLetterDetails.Any(ild =>
+                ild.DocumentId == d.Id && (
+                    ild.ResolutionManagerId == actorId ||
+                    ild.Recipients.Any(r => r.UserId == actorId))) ||
+            (isDeptManager && deptId != null && d.DepartmentId == deptId) ||
+            db.WorkTasks.Any(t =>
+                t.ExternalId == d.Id && t.AssigneeId == actorId && t.Source == TaskSource.DCS));
+    }
+
+    private static bool IsIncomingRegistrar(User u) =>
+        u.Email.Equals(DcsRouting.IncomingRegistrarEmail, StringComparison.OrdinalIgnoreCase) ||
+        u.Role == UserRole.SuperAdmin;
+
     private async Task<Result<PagedResult<DocumentListItemDto>>> GetProcurementRequestsAsync(
         User actor,
         Guid actorId,
@@ -393,7 +509,32 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
         if (doc.Type == DocumentType.ProcurementRequest)
             return await CanViewProcurementRequestAsync(actor, actorId, doc, ct);
 
+        if (doc.Type == DocumentType.Incoming)
+            return await CanViewIncomingLetterAsync(actor, actorId, doc, ct);
+
         return doc.OrganizationId == actor.OrganizationId;
+    }
+
+    private async Task<bool> CanViewIncomingLetterAsync(User actor, Guid actorId, Document doc, CancellationToken ct)
+    {
+        if (IsIncomingRegistrar(actor) || actor.Role == UserRole.SuperAdmin) return true;
+        if (doc.AuthorId == actorId || doc.AssigneeId == actorId) return true;
+
+        var detail = await db.IncomingLetterDetails.AsNoTracking()
+            .Include(d => d.Recipients)
+            .FirstOrDefaultAsync(d => d.DocumentId == doc.Id, ct);
+
+        if (detail is null)
+            return doc.OrganizationId == actor.OrganizationId;
+
+        if (detail.ResolutionManagerId == actorId) return true;
+        if (detail.Recipients.Any(r => r.UserId == actorId)) return true;
+        if (IsDeptManager(actor) && actor.DepartmentId == doc.DepartmentId) return true;
+        if (await db.WorkTasks.AsNoTracking().AnyAsync(t =>
+                t.ExternalId == doc.Id && t.AssigneeId == actorId && t.Source == TaskSource.DCS, ct))
+            return true;
+
+        return actor.Role == UserRole.HOTopManager;
     }
 
     private async Task<bool> CanViewProcurementRequestAsync(
@@ -433,7 +574,13 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
         doc.AuthorId == actor.Id ||
         (IsDeptManager(actor) && actor.DepartmentId == doc.DepartmentId);
 
-    private static DocumentListItemDto MapListItem(Document d, ProcurementRequestDetail? procurement = null) => new(
+    private static DocumentListItemDto MapListItem(
+        Document d,
+        ProcurementRequestDetail? procurement = null,
+        IncomingLetterPhase? incomingPhase = null,
+        OutgoingLetterPhase? outgoingPhase = null,
+        MemoPhase? memoPhase = null,
+        OrderPhase? orderPhase = null) => new(
         d.Id, d.Number, d.Title, d.Type, d.Status,
         d.Author.FullName, d.Assignee?.FullName,
         d.Department.Name, d.Department.NameEn,
@@ -445,7 +592,11 @@ public class DcsService(AppDbContext db, IAuditService audit) : IDcsService
             : null,
         procurement?.Initiator?.FullName,
         procurement?.Priority,
-        procurement?.Region);
+        procurement?.Region,
+        incomingPhase,
+        outgoingPhase,
+        memoPhase,
+        orderPhase);
 
     private static DocumentDto MapDocument(Document d) => new(
         d.Id, d.Number, d.Title, d.Description, d.Type, d.Status,

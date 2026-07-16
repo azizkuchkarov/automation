@@ -11,6 +11,27 @@ export type ProcurementMethodType =
   | "BestOffer"
   | "Tender";
 
+export type MarketingPlanRegistrationMethod =
+  | "Tender"
+  | "BestOfferSelection"
+  | "LocalProcurement"
+  | "SmallProcurement"
+  | "QuotationRequest"
+  | "DirectContract";
+
+export interface MarketingProcurementPlan {
+  id: string;
+  version: number;
+  procurementMethod: ProcurementMethodType;
+  registrationMethod?: MarketingPlanRegistrationMethod;
+  registrationNumber?: string;
+  templateStorageKey?: string;
+  templateFileName?: string;
+  registeredAt?: string;
+  attachmentKey?: string;
+  createdAt: string;
+}
+
 export type MarketingRecordStatus =
   | "WaitingExecutor"
   | "WaitingAccept"
@@ -50,6 +71,8 @@ export interface MarketingRecordListItem {
   updatedAt: string;
 }
 
+export type MarketingInitiatorReviewStatus = "Pending" | "Approved" | "Rejected";
+
 export interface MarketingOffer {
   id: string;
   companyName: string;
@@ -67,6 +90,16 @@ export interface MarketingOffer {
   affiliationNote?: string;
   source: MarketingOfferSource;
   attachmentKey?: string;
+  initiatorReviewStatus: MarketingInitiatorReviewStatus;
+  initiatorReviewedById?: string;
+  initiatorReviewedByName?: string;
+  initiatorReviewedAt?: string;
+  initiatorReviewComment?: string;
+  engineerReviewStatus: MarketingInitiatorReviewStatus;
+  engineerReviewedById?: string;
+  engineerReviewedByName?: string;
+  engineerReviewedAt?: string;
+  engineerReviewComment?: string;
   createdAt: string;
 }
 
@@ -102,12 +135,14 @@ export interface MarketingRecord extends MarketingRecordListItem {
   deadlineBaseDate?: string;
   deadlineWorkingDays?: number;
   marketingExecutorId?: string;
+  tasResponsibleName?: string;
   marketingCurrentStep: number;
   procurementMethod?: ProcurementMethodType;
   budgetAmount?: number;
   rfqPreparedAt?: string;
   rfqDocumentStorageKey?: string;
   rfqDocumentFileName?: string;
+  rfqCommercialProposalDeadline?: string;
   rfqPublishedAtgSite: boolean;
   rfqPublishedTenderweek: boolean;
   rfqSentToVendor: boolean;
@@ -116,6 +151,8 @@ export interface MarketingRecord extends MarketingRecordListItem {
   offers: MarketingOffer[];
   rfqDispatches: RfqDispatch[];
   rfqChannelRequests?: MarketingRfqChannelRequest[];
+  plans?: MarketingProcurementPlan[];
+  strategyNumber?: string;
   offersSummary?: {
     compliantCount: number;
     averageCompliantAmount?: number;
@@ -202,6 +239,26 @@ export function procurementMethodLabel(method: ProcurementMethodType, locale: st
     Rfp: "Request for proposals / prices",
     BestOffer: "Best offer selection",
     Tender: "Tender",
+  };
+  return locale.startsWith("en") ? en[method] : ru[method];
+}
+
+export function planRegistrationMethodLabel(method: MarketingPlanRegistrationMethod, locale: string) {
+  const ru: Record<MarketingPlanRegistrationMethod, string> = {
+    Tender: "Тендер",
+    BestOfferSelection: "Отбор наилучшего предложения",
+    LocalProcurement: "Локальный закуп",
+    SmallProcurement: "Малый закуп",
+    QuotationRequest: "Запрос предложений (цен)",
+    DirectContract: "Прямой договор",
+  };
+  const en: Record<MarketingPlanRegistrationMethod, string> = {
+    Tender: "Tender",
+    BestOfferSelection: "Best offer selection",
+    LocalProcurement: "Local procurement",
+    SmallProcurement: "Small-value procurement",
+    QuotationRequest: "Request for quotations (prices)",
+    DirectContract: "Direct contract",
   };
   return locale.startsWith("en") ? en[method] : ru[method];
 }

@@ -7,6 +7,9 @@ const internalApiUrl = process.env.INTERNAL_API_URL ?? "http://localhost:5161";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  experimental: {
+    optimizePackageImports: ["lucide-react", "recharts"],
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

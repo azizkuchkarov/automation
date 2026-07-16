@@ -1,0 +1,18 @@
+using ATG.Platform.Domain.Enums;
+
+namespace ATG.Platform.Domain.Entities;
+
+public class ProcurementContractsIntStepApprover
+{
+    public Guid Id { get; set; }
+    public Guid DocumentId { get; set; }
+    public int StepNumber { get; set; }
+    public Guid UserId { get; set; }
+    public int SortOrder { get; set; }
+    public ProcurementApproverStatus Status { get; set; } = ProcurementApproverStatus.Pending;
+    public DateTime? DecidedAt { get; set; }
+    public string? Comment { get; set; }
+
+    public ProcurementRequestDetail Request { get; set; } = null!;
+    public User User { get; set; } = null!;
+}

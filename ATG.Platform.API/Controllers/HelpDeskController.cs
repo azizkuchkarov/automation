@@ -84,6 +84,13 @@ public class HelpDeskController(IHelpDeskService helpDesk) : ControllerBase
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("tickets/{id:guid}/upload-translation")]
+    public async Task<IActionResult> UploadTranslation(Guid id, [FromBody] UploadTranslationDocumentRequest request, CancellationToken ct)
+    {
+        var result = await helpDesk.UploadTranslationDocumentAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("tickets/{id:guid}/comments")]
     public async Task<IActionResult> AddComment(Guid id, [FromBody] AddTicketCommentRequest request, CancellationToken ct)
     {

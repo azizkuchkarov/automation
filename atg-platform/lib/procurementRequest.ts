@@ -10,11 +10,26 @@ export type ProcurementRequestPhase =
 
   | "Contracts"
 
+  | "Payment"
+
   | "Completed";
+
+export type ProcurementPaymentSubPhase = "Pending" | "WaitingAccept" | "InProgress" | "Completed";
 
 export type ProcurementMarketingSubPhase = "Pending" | "WaitingAccept" | "InProgress" | "Completed";
 
-export type ProcurementContractsSubPhase = "Pending" | "WaitingAccept" | "InProgress" | "Completed";
+export type ProcurementContractsSubPhase = "Pending" | "SectionPending" | "WaitingAccept" | "InProgress" | "Completed";
+
+export type ContractsProcurementSectionType = "International" | "Domestic";
+
+export type ContractsIntProcurementVariant = "Sbp" | "Tender" | "DirectForeignContract";
+
+export type ContractsDomProcurementVariant =
+  | "EShop"
+  | "ElectronicAuction"
+  | "QuotationRequest"
+  | "DirectContract"
+  | "SmallValue";
 
 export type ProcurementWorkflowPhase = "TechnicalAffairs" | "Approval" | "Marketing" | "Contracts";
 
@@ -176,6 +191,21 @@ export interface ProcurementAttachment {
 
 }
 
+export type ProcessDocumentSource = "Uploaded" | "Generated";
+
+export interface ProcurementProcessDocument {
+  id: string;
+  fileName: string;
+  storageKey?: string;
+  source: ProcessDocumentSource;
+  phase: string;
+  category: string;
+  departmentName?: string;
+  departmentNameEn?: string;
+  userName?: string;
+  at?: string;
+}
+
 
 
 export interface ProcurementTimelineEvent {
@@ -268,6 +298,8 @@ export interface ProcurementRequest {
 
   eamFormationDate?: string;
 
+  tasRequisitionType?: "MaterialRequest" | "ServiceRequest";
+
   dueDate?: string;
 
   organizationId: string;
@@ -281,6 +313,10 @@ export interface ProcurementRequest {
   departmentNameEn: string;
 
   responsibleTaskId?: string;
+
+  tasResponsibleId?: string;
+
+  tasResponsibleName?: string;
 
   marketingTaskId?: string;
 
@@ -304,6 +340,10 @@ export interface ProcurementRequest {
 
   contractsSubPhase: ProcurementContractsSubPhase;
 
+  contractsProcurementSection?: ContractsProcurementSectionType;
+
+  contractsSectionRoutedAt?: string;
+
   contractsSpecialistId?: string;
 
   contractsSpecialistName?: string;
@@ -312,15 +352,89 @@ export interface ProcurementRequest {
 
   contractsAcceptedAt?: string;
 
+  contractsIntVariant?: ContractsIntProcurementVariant;
+
+  contractsIntCurrentStep: number;
+
+  contractsIntVariantSelectedAt?: string;
+
+  contractsIntCompletedAt?: string;
+
+  contractsIntContractRegistrationNumber?: string;
+
+  contractsIntContractRegisteredAt?: string;
+
+  contractsIntSecretariatPending?: boolean;
+
+  contractsIntSecretariatUserId?: string;
+
+  contractsIntSecretariatUserName?: string;
+
+  contractsDomVariant?: ContractsDomProcurementVariant;
+
+  contractsDomCurrentStep: number;
+
+  contractsDomVariantSelectedAt?: string;
+
+  contractsDomCompletedAt?: string;
+
+  contractsDomContractRegistrationNumber?: string;
+
+  contractsDomContractRegisteredAt?: string;
+
+  contractsDomContractsAdminPending?: boolean;
+
+  contractsDomContractsAdminUserId?: string;
+
+  contractsDomContractsAdminUserName?: string;
+
+  contractsDomPriceRequestDate?: string;
+
+  contractsDomPriceResponseDueDate?: string;
+
+  contractsDomDeliveryDueDate?: string;
+
+  contractsDomActualDeliveryDate?: string;
+
+  contractsDomLastTerminationAt?: string;
+
+  paymentSubPhase?: ProcurementPaymentSubPhase;
+
+  paymentTaskId?: string;
+
+  paymentSpecialistId?: string;
+
+  paymentSpecialistName?: string;
+
+  paymentAssignedAt?: string;
+
+  paymentAcceptedAt?: string;
+
+  contractsIntSteps?: ProcurementContractsIntStep[];
+
+  contractsDomSteps?: ProcurementContractsDomStep[];
+
   marketingPermissions?: ProcurementMarketingPermissions;
 
   contractsPermissions?: ProcurementContractsPermissions;
+
+  paymentPermissions?: ProcurementPaymentPermissions;
 
   marketingPlanApprovalSubmittedAt?: string;
 
   marketingPlanRegistrationNumber?: string;
 
   marketingPlanRegisteredAt?: string;
+
+  marketingRfqRegistrationNumber?: string;
+
+  marketingRfqRegisteredAt?: string;
+
+  marketingProcurementPlanRegistrationNumber?: string;
+
+  marketingProcurementPlanRegisteredAt?: string;
+
+  marketingProcurementPlanRegistrationMethod?: string;
 
   marketingPlanPermissions?: ProcurementMarketingPlanPermissions;
 
@@ -337,6 +451,8 @@ export interface ProcurementRequest {
   approvers: ProcurementApprover[];
 
   attachments: ProcurementAttachment[];
+
+  processDocuments?: ProcurementProcessDocument[];
 
   registeredAt?: string;
 
@@ -408,23 +524,17 @@ export interface ProcurementStepComment {
 }
 
 export interface ProcurementMarketingPermissions {
-
   canAccept: boolean;
-
   canAssign: boolean;
-
+  canReturnToInitiator: boolean;
   canComplete: boolean;
-
   canForwardToContracts: boolean;
-
   canCompleteCurrentStep: boolean;
-
   canRecordBranch: boolean;
-
   canResolveBranch: boolean;
-
+  canReviewProposals: boolean;
+  canReviewProposalsAsEngineer: boolean;
   currentStep: number;
-
 }
 
 
@@ -443,9 +553,160 @@ export interface ProcurementContractsPermissions {
 
   canAssign: boolean;
 
+  canRouteSection: boolean;
+
+  canSelectIntVariant: boolean;
+
+  canCompleteIntStep: boolean;
+
+  canUploadIntStepFile: boolean;
+
+  canSubmitIntStepApprovers: boolean;
+
+  canDecideIntStepApproval: boolean;
+
+  canSendToSecretariat: boolean;
+
+  canCompleteAsSecretariat: boolean;
+
+  contractsIntCurrentStep: number;
+
+  canSelectDomVariant: boolean;
+
+  canCompleteDomStep: boolean;
+
+  canUploadDomStepFile: boolean;
+
+  canSubmitDomStepApprovers: boolean;
+
+  canDecideDomStepApproval: boolean;
+
+  canSendToContractsAdmin: boolean;
+
+  canCompleteAsContractsAdmin: boolean;
+
+  canScheduleDomStep: boolean;
+
+  canReturnDomStepToMarketing: boolean;
+
+  canRollbackDomStep: boolean;
+
+  contractsDomCurrentStep: number;
+
 }
 
+export interface ProcurementPaymentPermissions {
+  canAssign: boolean;
+  canAccept: boolean;
+}
 
+export interface ProcurementContractsIntStepFile {
+  id: string;
+  stepNumber: number;
+  fileName: string;
+  storageKey?: string;
+  uploadedByName: string;
+  uploadedAt: string;
+}
+
+export interface ProcurementContractsIntStepApprover {
+  id: string;
+  stepNumber: number;
+  userId: string;
+  fullName: string;
+  email: string;
+  status: ProcurementApproverStatus;
+  sortOrder: number;
+  decidedAt?: string;
+  comment?: string;
+}
+
+export interface ProcurementContractsIntStep {
+
+  number: number;
+
+  titleRu: string;
+
+  titleEn: string;
+
+  hintRu: string;
+
+  hintEn: string;
+
+  hasBranch: boolean;
+
+  branchHintRu?: string;
+
+  branchHintEn?: string;
+
+  requiresUpload: boolean;
+
+  requiresApprovers: boolean;
+
+  requiresSecretariat: boolean;
+
+  requiresRegistration: boolean;
+
+  files: ProcurementContractsIntStepFile[];
+
+  approvers: ProcurementContractsIntStepApprover[];
+
+  approversSubmitted: boolean;
+
+  allApproversApproved: boolean;
+
+  secretariatPending: boolean;
+
+}
+
+export interface ProcurementContractsDomStepFile {
+  id: string;
+  stepNumber: number;
+  fileName: string;
+  storageKey?: string;
+  uploadedByName: string;
+  uploadedAt: string;
+}
+
+export interface ProcurementContractsDomStepApprover {
+  id: string;
+  stepNumber: number;
+  userId: string;
+  fullName: string;
+  email: string;
+  status: ProcurementApproverStatus;
+  sortOrder: number;
+  decidedAt?: string;
+  comment?: string;
+}
+
+export interface ProcurementContractsDomStep {
+  number: number;
+  titleRu: string;
+  titleEn: string;
+  hintRu: string;
+  hintEn: string;
+  hasBranch: boolean;
+  branchHintRu?: string;
+  branchHintEn?: string;
+  requiresUpload: boolean;
+  requiresApprovers: boolean;
+  requiresContractsAdmin: boolean;
+  requiresRegistration: boolean;
+  requiresScheduleDate: boolean;
+  scheduleLabelRu?: string;
+  scheduleLabelEn?: string;
+  scheduleHintRu?: string;
+  scheduleHintEn?: string;
+  allowsReturnToMarketing: boolean;
+  allowsTerminationRollback: boolean;
+  rollbackStepNumber?: number;
+  files: ProcurementContractsDomStepFile[];
+  approvers: ProcurementContractsDomStepApprover[];
+  approversSubmitted: boolean;
+  allApproversApproved: boolean;
+  contractsAdminPending: boolean;
+}
 
 export interface ProcurementMarketingStep {
 
@@ -497,7 +758,40 @@ export interface ProcurementMarketingQueueItem {
 
 }
 
+export interface ProcurementContractsQueueItem {
+  id: string;
+  number: string;
+  title: string;
+  titleRu?: string;
+  section?: ContractsProcurementSectionType | null;
+  contractsSubPhase: ProcurementContractsSubPhase;
+  assigneeName?: string;
+  contractsSpecialistName?: string;
+  updatedAt: string;
+}
 
+export interface ProcurementContractsBoardItem {
+  id: string;
+  number: string;
+  title: string;
+  titleRu?: string;
+  section?: ContractsProcurementSectionType | null;
+  contractsSubPhase: ProcurementContractsSubPhase;
+  assigneeName?: string;
+  contractsSpecialistName?: string;
+  domVariant?: string | null;
+  intVariant?: string | null;
+  domCurrentStep: number;
+  intCurrentStep: number;
+  updatedAt: string;
+}
+
+export interface ProcurementContractsBoardColumn {
+  subPhase: ProcurementContractsSubPhase;
+  labelRu: string;
+  labelEn: string;
+  items: ProcurementContractsBoardItem[];
+}
 
 export function stepTitle(step: ProcurementStep, locale: string) {
 
@@ -661,6 +955,8 @@ export function phaseLabel(phase: ProcurementRequestPhase, locale: string) {
 
     Contracts: "Контракты",
 
+    Payment: "Payment",
+
     Completed: "Завершено",
 
   };
@@ -674,6 +970,8 @@ export function phaseLabel(phase: ProcurementRequestPhase, locale: string) {
     Marketing: "Marketing",
 
     Contracts: "Contracts",
+
+    Payment: "Payment",
 
     Completed: "Completed",
 
@@ -714,15 +1012,8 @@ export function marketingStepBranchHint(step: ProcurementMarketingStep, locale: 
 export function branchForMarketingStep(stepNumber: number): MarketingBranchType | null {
 
   const map: Record<number, MarketingBranchType> = {
-
     2: "TzEscalation",
-
-    5: "ResponseFollowUp",
-
-    6: "KpNegotiation",
-
-    7: "ManagementRevision",
-
+    6: "ManagementRevision",
   };
 
   return map[stepNumber] ?? null;
@@ -767,7 +1058,9 @@ export function contractsSubPhaseLabel(subPhase: ProcurementContractsSubPhase, l
 
   const ru: Record<ProcurementContractsSubPhase, string> = {
 
-    Pending: "Ожидает назначения",
+    Pending: "Ожидает маршрутизации",
+
+    SectionPending: "Ожидает назначения инженера",
 
     WaitingAccept: "Ожидает принятия инженером",
 
@@ -779,7 +1072,9 @@ export function contractsSubPhaseLabel(subPhase: ProcurementContractsSubPhase, l
 
   const en: Record<ProcurementContractsSubPhase, string> = {
 
-    Pending: "Awaiting assignment",
+    Pending: "Awaiting section routing",
+
+    SectionPending: "Awaiting engineer assignment",
 
     WaitingAccept: "Awaiting engineer acceptance",
 
@@ -794,6 +1089,144 @@ export function contractsSubPhaseLabel(subPhase: ProcurementContractsSubPhase, l
 }
 
 
+
+export function contractsSectionLabel(section: ContractsProcurementSectionType, locale: string) {
+
+  const ru: Record<ContractsProcurementSectionType, string> = {
+
+    International: "Отдел международных закупок",
+
+    Domestic: "Отдел локальных закупок",
+
+  };
+
+  const en: Record<ContractsProcurementSectionType, string> = {
+
+    International: "International Procurement Section",
+
+    Domestic: "Domestic Procurement Section",
+
+  };
+
+  return locale.startsWith("en") ? en[section] : ru[section];
+
+}
+
+
+
+export function contractsIntVariantLabel(variant: ContractsIntProcurementVariant, locale: string) {
+
+  const ru: Record<ContractsIntProcurementVariant, string> = {
+
+    Sbp: "Отбор наилучших предложений (SBP)",
+
+    Tender: "Тендер (TP)",
+
+    DirectForeignContract: "Прямой контракт с иностранными поставщиками",
+
+  };
+
+  const en: Record<ContractsIntProcurementVariant, string> = {
+
+    Sbp: "Selection of Best Proposals (SBP)",
+
+    Tender: "Tender (TP)",
+
+    DirectForeignContract: "Direct contract with foreign suppliers",
+
+  };
+
+  return locale.startsWith("en") ? en[variant] : ru[variant];
+
+}
+
+/** Example auto registration number, e.g. ATG-CD-INT-SBP-26-001 */
+export function contractsIntRegistrationExample(variant?: ContractsIntProcurementVariant | null) {
+  const code =
+    variant === "Tender" ? "TP" : variant === "DirectForeignContract" ? "DFC" : "SBP";
+  const yy = String(new Date().getFullYear() % 100).padStart(2, "0");
+  return `ATG-CD-INT-${code}-${yy}-001`;
+}
+
+export function contractsIntWorkflowTitle(
+  variant: ContractsIntProcurementVariant,
+  locale: string,
+  stepCount: number
+) {
+  const ru: Record<ContractsIntProcurementVariant, string> = {
+    Sbp: `Отбор наилучших предложений (SBP) — ${stepCount} шагов`,
+    Tender: `Тендер (TP) — ${stepCount} шагов`,
+    DirectForeignContract: `Прямой контракт с иностранными поставщиками — ${stepCount} шагов`,
+  };
+  const en: Record<ContractsIntProcurementVariant, string> = {
+    Sbp: `Selection of Best Proposals (SBP) — ${stepCount} steps`,
+    Tender: `Tender (TP) — ${stepCount} steps`,
+    DirectForeignContract: `Direct contract with foreign suppliers — ${stepCount} steps`,
+  };
+  return locale.startsWith("en") ? en[variant] : ru[variant];
+}
+
+
+
+export function contractsIntStepTitle(step: ProcurementContractsIntStep, locale: string) {
+
+  return locale.startsWith("en") ? step.titleEn : step.titleRu;
+
+}
+
+
+
+export function contractsIntStepHint(step: ProcurementContractsIntStep, locale: string) {
+
+  return locale.startsWith("en") ? step.hintEn : step.hintRu;
+
+}
+
+export function contractsDomVariantLabel(variant: ContractsDomProcurementVariant, locale: string) {
+  const ru: Record<ContractsDomProcurementVariant, string> = {
+    EShop: "Закупка методом E-shop",
+    ElectronicAuction: "Электронный аукцион",
+    QuotationRequest: "Запрос предложений",
+    DirectContract: "Прямой договор",
+    SmallValue: "Упрощённая процедура (малая стоимость)",
+  };
+  const en: Record<ContractsDomProcurementVariant, string> = {
+    EShop: "E-shop procurement",
+    ElectronicAuction: "Electronic auction",
+    QuotationRequest: "Quotation request",
+    DirectContract: "Direct contract",
+    SmallValue: "Simplified small-value procedure",
+  };
+  return locale.startsWith("en") ? en[variant] : ru[variant];
+}
+
+export function contractsDomRegistrationExample(variant?: ContractsDomProcurementVariant | null) {
+  const code =
+    variant === "ElectronicAuction" ? "AUC"
+      : variant === "QuotationRequest" ? "QRS"
+        : variant === "DirectContract" ? "DPS"
+          : variant === "SmallValue" ? "SPS"
+            : "ESHOP";
+  const yy = String(new Date().getFullYear() % 100).padStart(2, "0");
+  return `ATG-CD-DOM-${code}-${yy}-001`;
+}
+
+export function contractsDomWorkflowTitle(
+  variant: ContractsDomProcurementVariant,
+  locale: string,
+  stepCount: number
+) {
+  const label = contractsDomVariantLabel(variant, locale);
+  return locale.startsWith("en") ? `${label} — ${stepCount} steps` : `${label} — ${stepCount} шагов`;
+}
+
+export function contractsDomStepTitle(step: ProcurementContractsDomStep, locale: string) {
+  return locale.startsWith("en") ? step.titleEn : step.titleRu;
+}
+
+export function contractsDomStepHint(step: ProcurementContractsDomStep, locale: string) {
+  return locale.startsWith("en") ? step.hintEn : step.hintRu;
+}
 
 export function topologyStatusLabel(status: ProcurementTopologyNodeStatus, locale: string) {
 
@@ -848,6 +1281,16 @@ export function timelineActionLabel(action: string, locale: string) {
     handoff_marketing: "Передано в маркетинг",
 
     handoff_contracts: "Передано в контракты",
+
+    contracts_section_routed: "Направлено в отдел закупок",
+
+    contracts_int_completed: "Международный процесс завершён",
+
+    handed_off_to_payment: "Передано в Payment",
+
+    payment_assigned: "Назначен специалист Payment",
+
+    payment_accepted: "Payment принял в работу",
 
     marketing_accepted: "Маркетинг принял в работу",
 
@@ -906,6 +1349,16 @@ export function timelineActionLabel(action: string, locale: string) {
     handoff_marketing: "Handed off to Marketing",
 
     handoff_contracts: "Handed off to Contracts",
+
+    contracts_section_routed: "Routed to procurement section",
+
+    contracts_int_completed: "International workflow completed",
+
+    handed_off_to_payment: "Handed off to Payment",
+
+    payment_assigned: "Payment specialist assigned",
+
+    payment_accepted: "Payment accepted",
 
     marketing_accepted: "Marketing accepted",
 

@@ -29,11 +29,32 @@ import {
   slugToType,
 } from "@/lib/dcs";
 import { phaseLabel, type ProcurementRequestPhase } from "@/lib/procurementRequest";
+import {
+  INCOMING_LETTER_PHASES,
+  phaseLabel as incomingPhaseLabel,
+  type IncomingLetterPhase,
+} from "@/lib/incomingLetter";
+import {
+  OUTGOING_LETTER_PHASES,
+  outgoingPhaseLabel,
+  type OutgoingLetterPhase,
+} from "@/lib/outgoingLetter";
+import {
+  MEMO_PHASES,
+  memoPhaseLabel,
+  type MemoPhase,
+} from "@/lib/memo";
+import {
+  ORDER_PHASES,
+  orderPhaseLabel,
+  type OrderPhase,
+} from "@/lib/order";
 import { priorityDotClass } from "@/lib/procurementPriority";
 import { DocumentStatusBadge } from "@/components/dcs/DocumentBadges";
 import { DcsPageHeader } from "@/components/dcs/DcsPageHeader";
 import { DcsEmptyState, DcsListSkeleton } from "@/components/dcs/DcsEmptyState";
 import { dcsTheme } from "@/components/dcs/dcsTheme";
+import { officeDocTheme, type OfficeDocKind } from "@/components/dcs/officeDocTheme";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -82,22 +103,39 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
   const locale = useLocale();
   const docType = slugToType(typeSlug);
   const isRequests = typeSlug === "requests";
+  const isIncoming = typeSlug === "incoming";
+  const isOutgoing = typeSlug === "outgoing";
+  const isMemo = typeSlug === "memo";
+  const isOrders = typeSlug === "orders";
   const [items, setItems] = useState<DocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "all">("all");
   const [phaseFilter, setPhaseFilter] = useState<ProcurementRequestPhase | "all">("all");
+  const [incomingPhaseFilter, setIncomingPhaseFilter] = useState<IncomingLetterPhase | "all">("all");
+  const [outgoingPhaseFilter, setOutgoingPhaseFilter] = useState<OutgoingLetterPhase | "all">("all");
+  const [memoPhaseFilter, setMemoPhaseFilter] = useState<MemoPhase | "all">("all");
+  const [orderPhaseFilter, setOrderPhaseFilter] = useState<OrderPhase | "all">("all");
   const [canCreateRequest, setCanCreateRequest] = useState(false);
+  const [canRegisterIncoming, setCanRegisterIncoming] = useState(false);
+  const [canCreateOutgoing, setCanCreateOutgoing] = useState(false);
+  const [canCreateMemo, setCanCreateMemo] = useState(false);
+  const [canCreateOrder, setCanCreateOrder] = useState(false);
+  const [isIncomingRegistrar, setIsIncomingRegistrar] = useState(false);
 
   useEffect(() => {
     if (!docType) return;
     setLoading(true);
-    const view = isRequests ? "involved" : "registry";
+    const view = isRequests
+      ? "involved"
+      : isIncoming
+        ? (isIncomingRegistrar ? "registry" : "involved")
+        : "registry";
     api
       .get(`/dcs/documents?type=${docType}&view=${view}&pageSize=200`)
       .then((r) => setItems(r.data.items))
       .finally(() => setLoading(false));
-  }, [docType, isRequests]);
+  }, [docType, isRequests, isIncoming, isIncomingRegistrar]);
 
   useEffect(() => {
     if (!isRequests) return;
@@ -107,10 +145,65 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
       .catch(() => setCanCreateRequest(false));
   }, [isRequests]);
 
+  useEffect(() => {
+    if (!isIncoming) return;
+    api
+      .get("/dcs/incoming-letters/permissions")
+      .then((r) => {
+        const registrar = Boolean(r.data.isRegistrar);
+        setIsIncomingRegistrar(registrar);
+        setCanRegisterIncoming(registrar);
+      })
+      .catch(() => {
+        setIsIncomingRegistrar(false);
+        setCanRegisterIncoming(false);
+      });
+  }, [isIncoming]);
+
+  useEffect(() => {
+    if (!isOutgoing) return;
+    api
+      .get("/dcs/outgoing-letters/permissions")
+      .then((r) => setCanCreateOutgoing(Boolean(r.data.canCreate)))
+      .catch(() => setCanCreateOutgoing(false));
+  }, [isOutgoing]);
+
+  useEffect(() => {
+    if (!isMemo) return;
+    api
+      .get("/dcs/memos/permissions")
+      .then((r) => setCanCreateMemo(Boolean(r.data.canCreate)))
+      .catch(() => setCanCreateMemo(false));
+  }, [isMemo]);
+
+  useEffect(() => {
+    if (!isOrders) return;
+    api
+      .get("/dcs/orders/permissions")
+      .then((r) => setCanCreateOrder(Boolean(r.data.canCreate)))
+      .catch(() => setCanCreateOrder(false));
+  }, [isOrders]);
+
   const filtered = useMemo(() => {
     let list = items;
     if (isRequests) {
       if (phaseFilter !== "all") list = list.filter((d) => d.procurementPhase === phaseFilter);
+    } else if (isIncoming) {
+      if (incomingPhaseFilter !== "all") {
+        list = list.filter((d) => d.incomingLetterPhase === incomingPhaseFilter);
+      }
+    } else if (isOutgoing) {
+      if (outgoingPhaseFilter !== "all") {
+        list = list.filter((d) => d.outgoingLetterPhase === outgoingPhaseFilter);
+      }
+    } else if (isMemo) {
+      if (memoPhaseFilter !== "all") {
+        list = list.filter((d) => d.memoPhase === memoPhaseFilter);
+      }
+    } else if (isOrders) {
+      if (orderPhaseFilter !== "all") {
+        list = list.filter((d) => d.orderPhase === orderPhaseFilter);
+      }
     } else if (statusFilter !== "all") {
       list = list.filter((d) => d.status === statusFilter);
     }
@@ -125,7 +218,39 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
       );
     }
     return list;
-  }, [items, search, statusFilter, phaseFilter, isRequests]);
+  }, [items, search, statusFilter, phaseFilter, incomingPhaseFilter, outgoingPhaseFilter, memoPhaseFilter, orderPhaseFilter, isRequests, isIncoming, isOutgoing, isMemo, isOrders]);
+
+  const incomingPhaseCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: items.length };
+    for (const p of INCOMING_LETTER_PHASES) {
+      counts[p] = items.filter((d) => d.incomingLetterPhase === p).length;
+    }
+    return counts;
+  }, [items]);
+
+  const outgoingPhaseCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: items.length };
+    for (const p of OUTGOING_LETTER_PHASES) {
+      counts[p] = items.filter((d) => d.outgoingLetterPhase === p).length;
+    }
+    return counts;
+  }, [items]);
+
+  const memoPhaseCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: items.length };
+    for (const p of MEMO_PHASES) {
+      counts[p] = items.filter((d) => d.memoPhase === p).length;
+    }
+    return counts;
+  }, [items]);
+
+  const orderPhaseCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: items.length };
+    for (const p of ORDER_PHASES) {
+      counts[p] = items.filter((d) => d.orderPhase === p).length;
+    }
+    return counts;
+  }, [items]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: items.length };
@@ -147,12 +272,48 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
 
   const title = t(`types.${typeSlug}`);
   const subtitle = t(`typesDesc.${typeSlug}`);
-  const showNew = isRequests ? canCreateRequest : typeSlug !== "incoming";
-  const newHref =
-    typeSlug === "requests"
-      ? `/${locale}/automation/procurement/requests/new`
+  const showNew = isRequests
+    ? canCreateRequest
+    : isIncoming
+      ? canRegisterIncoming
+      : isOutgoing
+        ? canCreateOutgoing
+        : isMemo
+          ? canCreateMemo
+          : isOrders
+            ? canCreateOrder
+            : typeSlug !== "incoming";
+  const newHref = isRequests
+    ? `/${locale}/automation/procurement/requests/new`
+    : isIncoming
+      ? `/${locale}/automation/office/incoming/new`
+      : isOutgoing
+        ? `/${locale}/automation/office/outgoing/new`
+        : isMemo
+          ? `/${locale}/automation/office/memo/new`
+          : isOrders
+            ? `/${locale}/automation/office/orders/new`
       : `/${locale}/automation/documents/new?type=${typeSlug}`;
+  const newLabel = isIncoming
+    ? t("incoming.list.registerCta")
+    : isOutgoing
+      ? t("outgoing.list.createCta")
+      : isMemo
+        ? t("memo.list.createCta")
+        : isOrders
+          ? t("order.list.createCta")
+      : t("nav.new");
   const TypeIcon = TYPE_ICONS[typeSlug] ?? FileText;
+  const officeKind: OfficeDocKind | undefined = isIncoming
+    ? "incoming"
+    : isOutgoing
+      ? "outgoing"
+      : isMemo
+        ? "memo"
+        : isOrders
+          ? "orders"
+          : undefined;
+  const officeTheme = officeKind ? officeDocTheme(officeKind) : null;
 
   return (
     <>
@@ -162,12 +323,19 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
         breadcrumb={title}
         icon={TypeIcon}
         iconClassName={TYPE_ICON_BG[typeSlug]}
+        officeKind={officeKind}
         actions={
           showNew ? (
             <Link href={newHref}>
-              <Button size="sm" className={cn("h-10 px-5 font-semibold rounded-xl", dcsTheme.primaryBtn)}>
+              <Button
+                size="sm"
+                className={cn(
+                  "h-10 px-5 font-semibold rounded-xl text-white border-0 shadow-lg",
+                  officeTheme?.primaryBtn ?? dcsTheme.primaryBtn
+                )}
+              >
                 <Plus size={15} className="mr-1.5" strokeWidth={2.5} />
-                {t("nav.new")}
+                {newLabel}
               </Button>
             </Link>
           ) : undefined
@@ -196,6 +364,78 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                   accent="from-pink-500 to-rose-500"
                 />
               </>
+            ) : isIncoming ? (
+              <>
+                <StatCard
+                  label={incomingPhaseLabel("Registered", locale)}
+                  value={incomingPhaseCounts.Registered ?? 0}
+                  accent="from-slate-500 to-slate-400"
+                />
+                <StatCard
+                  label={incomingPhaseLabel("InExecution", locale)}
+                  value={incomingPhaseCounts.InExecution ?? 0}
+                  accent="from-sky-500 to-cyan-500"
+                />
+                <StatCard
+                  label={incomingPhaseLabel("Completed", locale)}
+                  value={incomingPhaseCounts.Completed ?? 0}
+                  accent="from-emerald-500 to-teal-500"
+                />
+              </>
+            ) : isOutgoing ? (
+              <>
+                <StatCard
+                  label={outgoingPhaseLabel("Draft", locale)}
+                  value={outgoingPhaseCounts.Draft ?? 0}
+                  accent="from-slate-500 to-slate-400"
+                />
+                <StatCard
+                  label={outgoingPhaseLabel("AwaitingDeptHeadApproval", locale)}
+                  value={outgoingPhaseCounts.AwaitingDeptHeadApproval ?? 0}
+                  accent="from-violet-500 to-purple-500"
+                />
+                <StatCard
+                  label={outgoingPhaseLabel("Completed", locale)}
+                  value={outgoingPhaseCounts.Completed ?? 0}
+                  accent="from-emerald-500 to-teal-500"
+                />
+              </>
+            ) : isMemo ? (
+              <>
+                <StatCard
+                  label={memoPhaseLabel("Draft", locale)}
+                  value={memoPhaseCounts.Draft ?? 0}
+                  accent="from-slate-500 to-slate-400"
+                />
+                <StatCard
+                  label={memoPhaseLabel("InExecution", locale)}
+                  value={memoPhaseCounts.InExecution ?? 0}
+                  accent="from-amber-500 to-orange-500"
+                />
+                <StatCard
+                  label={memoPhaseLabel("Completed", locale)}
+                  value={memoPhaseCounts.Completed ?? 0}
+                  accent="from-emerald-500 to-teal-500"
+                />
+              </>
+            ) : isOrders ? (
+              <>
+                <StatCard
+                  label={orderPhaseLabel("Draft", locale)}
+                  value={orderPhaseCounts.Draft ?? 0}
+                  accent="from-slate-500 to-slate-400"
+                />
+                <StatCard
+                  label={orderPhaseLabel("AwaitingDeptHeadApproval", locale)}
+                  value={orderPhaseCounts.AwaitingDeptHeadApproval ?? 0}
+                  accent="from-orange-500 to-amber-500"
+                />
+                <StatCard
+                  label={orderPhaseLabel("Completed", locale)}
+                  value={orderPhaseCounts.Completed ?? 0}
+                  accent="from-emerald-500 to-teal-500"
+                />
+              </>
             ) : (
               <>
                 <StatCard label={t("status.InReview")} value={statusCounts.InReview ?? 0} accent="from-sky-500 to-cyan-500" />
@@ -216,15 +456,26 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t("list.search")}
-                className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] text-sm shadow-inner placeholder:text-foreground/35 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40 transition-all"
+                className={cn(
+                  "w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] text-sm shadow-inner placeholder:text-foreground/35 focus:outline-none focus:ring-2 transition-all",
+                  officeTheme?.searchFocus ?? "focus:ring-sky-500/30 focus:border-sky-500/40"
+                )}
               />
             </div>
             <div className="flex flex-wrap gap-1.5 p-1.5 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/[0.06]">
               <FilterChip
-                active={(isRequests ? phaseFilter : statusFilter) === "all"}
-                onClick={() => (isRequests ? setPhaseFilter("all") : setStatusFilter("all"))}
+                active={(isRequests ? phaseFilter : isIncoming ? incomingPhaseFilter : isOutgoing ? outgoingPhaseFilter : isMemo ? memoPhaseFilter : isOrders ? orderPhaseFilter : statusFilter) === "all"}
+                onClick={() => {
+                  if (isRequests) setPhaseFilter("all");
+                  else if (isIncoming) setIncomingPhaseFilter("all");
+                  else if (isOutgoing) setOutgoingPhaseFilter("all");
+                  else if (isMemo) setMemoPhaseFilter("all");
+                  else if (isOrders) setOrderPhaseFilter("all");
+                  else setStatusFilter("all");
+                }}
                 label={t("filters.all")}
-                count={isRequests ? phaseCounts.all : statusCounts.all}
+                count={isRequests ? phaseCounts.all : isIncoming ? incomingPhaseCounts.all : isOutgoing ? outgoingPhaseCounts.all : isMemo ? memoPhaseCounts.all : isOrders ? orderPhaseCounts.all : statusCounts.all}
+                accent={officeTheme?.phaseBadgeActive}
               />
               {isRequests
                 ? PROCUREMENT_PHASES.filter((p) => (phaseCounts[p] ?? 0) > 0 || phaseFilter === p).map((p) => (
@@ -236,7 +487,59 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                       count={phaseCounts[p] ?? 0}
                     />
                   ))
-                : DOCUMENT_STATUSES.filter((s) => (statusCounts[s] ?? 0) > 0 || statusFilter === s).map(
+                : isIncoming
+                  ? INCOMING_LETTER_PHASES.filter(
+                      (p) => (incomingPhaseCounts[p] ?? 0) > 0 || incomingPhaseFilter === p
+                    ).map((p) => (
+                    <FilterChip
+                      key={p}
+                      active={incomingPhaseFilter === p}
+                      onClick={() => setIncomingPhaseFilter(p)}
+                      label={incomingPhaseLabel(p, locale)}
+                      count={incomingPhaseCounts[p] ?? 0}
+                      accent={officeTheme?.phaseBadgeActive}
+                    />
+                    ))
+                  : isOutgoing
+                    ? OUTGOING_LETTER_PHASES.filter(
+                        (p) => (outgoingPhaseCounts[p] ?? 0) > 0 || outgoingPhaseFilter === p
+                      ).map((p) => (
+                        <FilterChip
+                          key={p}
+                          active={outgoingPhaseFilter === p}
+                          onClick={() => setOutgoingPhaseFilter(p)}
+                          label={outgoingPhaseLabel(p, locale)}
+                          count={outgoingPhaseCounts[p] ?? 0}
+                          accent={officeTheme?.phaseBadgeActive}
+                        />
+                      ))
+                    : isMemo
+                      ? MEMO_PHASES.filter(
+                          (p) => (memoPhaseCounts[p] ?? 0) > 0 || memoPhaseFilter === p
+                        ).map((p) => (
+                          <FilterChip
+                            key={p}
+                            active={memoPhaseFilter === p}
+                            onClick={() => setMemoPhaseFilter(p)}
+                            label={memoPhaseLabel(p, locale)}
+                            count={memoPhaseCounts[p] ?? 0}
+                            accent={officeTheme?.phaseBadgeActive}
+                          />
+                        ))
+                      : isOrders
+                        ? ORDER_PHASES.filter(
+                            (p) => (orderPhaseCounts[p] ?? 0) > 0 || orderPhaseFilter === p
+                          ).map((p) => (
+                            <FilterChip
+                              key={p}
+                              active={orderPhaseFilter === p}
+                              onClick={() => setOrderPhaseFilter(p)}
+                              label={orderPhaseLabel(p, locale)}
+                              count={orderPhaseCounts[p] ?? 0}
+                              accent={officeTheme?.phaseBadgeActive}
+                            />
+                          ))
+                  : DOCUMENT_STATUSES.filter((s) => (statusCounts[s] ?? 0) > 0 || statusFilter === s).map(
                     (s) => (
                       <FilterChip
                         key={s}
@@ -259,7 +562,17 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                     <th className="px-4 py-3.5 font-bold w-36">{t("fields.regNum")}</th>
                     <th className="px-4 py-3.5 font-bold">{t("fields.title")}</th>
                     <th className="px-4 py-3.5 font-bold w-40">
-                      {isRequests ? t("request.phase") : t("fields.status")}
+                      {isRequests
+                        ? t("request.phase")
+                        : isIncoming
+                          ? t("incoming.list.phase")
+                          : isOutgoing
+                            ? t("outgoing.list.phase")
+                            : isMemo
+                              ? t("memo.list.phase")
+                              : isOrders
+                                ? t("order.list.phase")
+                          : t("fields.status")}
                     </th>
                     <th className="px-4 py-3.5 font-bold w-44">
                       {isRequests ? t("request.initiator") : t("fields.author")}
@@ -290,7 +603,10 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                     filtered.map((doc) => (
                       <tr
                         key={doc.id}
-                        className="border-b border-slate-100/80 dark:border-white/[0.04] last:border-0 hover:bg-sky-500/[0.04] dark:hover:bg-sky-400/[0.06] transition-all duration-150 group"
+                        className={cn(
+                          "border-b border-slate-100/80 dark:border-white/[0.04] last:border-0 transition-all duration-150 group",
+                          officeTheme?.rowHover ?? "hover:bg-sky-500/[0.04] dark:hover:bg-sky-400/[0.06]"
+                        )}
                       >
                         <td className="px-5 py-3.5">
                           <button
@@ -304,7 +620,10 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                         <td className="px-4 py-3.5">
                           <Link
                             href={`/${locale}/automation/documents/${doc.id}`}
-                            className="inline-flex items-center gap-2 font-mono text-[13px] font-bold text-sky-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 transition-colors"
+                            className={cn(
+                              "inline-flex items-center gap-2 font-mono text-[13px] font-bold transition-colors",
+                              officeTheme?.linkHover ?? "text-sky-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300"
+                            )}
                           >
                             <span
                               className={cn(
@@ -330,13 +649,28 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
                               step={doc.procurementCurrentStep}
                               locale={locale}
                             />
+                          ) : isIncoming && doc.incomingLetterPhase ? (
+                            <IncomingPhaseBadge phase={doc.incomingLetterPhase} locale={locale} />
+                          ) : isOutgoing && doc.outgoingLetterPhase ? (
+                            <OutgoingPhaseBadge phase={doc.outgoingLetterPhase} locale={locale} />
+                          ) : isMemo && doc.memoPhase ? (
+                            <MemoPhaseBadge phase={doc.memoPhase} locale={locale} />
+                          ) : isOrders && doc.orderPhase ? (
+                            <OrderPhaseBadge phase={doc.orderPhase} locale={locale} />
                           ) : (
                             <DocumentStatusBadge status={doc.status} />
                           )}
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500/20 to-blue-600/15 flex items-center justify-center text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0 ring-1 ring-sky-500/10">
+                            <div
+                              className={cn(
+                                "w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center text-[10px] font-bold shrink-0 ring-1 ring-black/5",
+                                officeTheme
+                                  ? cn(`bg-gradient-to-br ${officeTheme.avatarBg}`, officeTheme.avatarText)
+                                  : "from-sky-500/20 to-blue-600/15 text-sky-600 dark:text-sky-400 ring-sky-500/10"
+                              )}
+                            >
                               {(isRequests ? doc.initiatorName ?? doc.authorName : doc.authorName).charAt(0)}
                             </div>
                             <div className="min-w-0">
@@ -377,6 +711,125 @@ export function DocumentTypeListPage({ typeSlug }: DocumentTypeListPageProps) {
   );
 }
 
+function IncomingPhaseBadge({ phase, locale }: { phase: IncomingLetterPhase; locale: string }) {
+  const colors: Partial<Record<IncomingLetterPhase, string>> = {
+    Received: "bg-slate-500/12 text-slate-700 dark:text-slate-300 border-slate-500/25",
+    TranslationPending: "bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-indigo-500/25",
+    ReadyForRegistration: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 border-cyan-500/25",
+    Registered: "bg-slate-500/12 text-slate-700 dark:text-slate-300 border-slate-500/25",
+    AwaitingResolution: "bg-violet-500/12 text-violet-700 dark:text-violet-300 border-violet-500/25",
+    RoutedToDepartment: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
+    AwaitingAcceptance: "bg-orange-500/12 text-orange-700 dark:text-orange-300 border-orange-500/25",
+    InExecution: "bg-sky-500/12 text-sky-700 dark:text-sky-300 border-sky-500/25",
+    AwaitingReview: "bg-yellow-500/12 text-yellow-700 dark:text-yellow-300 border-yellow-500/25",
+    NeedsRevision: "bg-rose-500/12 text-rose-700 dark:text-rose-300 border-rose-500/25",
+    AwaitingArchive: "bg-teal-500/12 text-teal-700 dark:text-teal-300 border-teal-500/25",
+    Completed: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border",
+        colors[phase] ?? "bg-foreground/5 text-foreground/60 border-border/40"
+      )}
+    >
+      {incomingPhaseLabel(phase, locale)}
+    </span>
+  );
+}
+
+function OutgoingPhaseBadge({ phase, locale }: { phase: OutgoingLetterPhase; locale: string }) {
+  const colors: Partial<Record<OutgoingLetterPhase, string>> = {
+    Draft: "bg-slate-500/12 text-slate-700 dark:text-slate-300 border-slate-500/25",
+    TranslationPending: "bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-indigo-500/25",
+    ReadyForEds: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 border-cyan-500/25",
+    AwaitingDeptHeadApproval: "bg-violet-500/12 text-violet-700 dark:text-violet-300 border-violet-500/25",
+    NeedsRevision: "bg-rose-500/12 text-rose-700 dark:text-rose-300 border-rose-500/25",
+    SpecialistCoordination: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
+    DepartmentCoordination: "bg-orange-500/12 text-orange-700 dark:text-orange-300 border-orange-500/25",
+    AwaitingSupervisingDeputyApproval: "bg-purple-500/12 text-purple-700 dark:text-purple-300 border-purple-500/25",
+    AwaitingFirstDeputyApproval: "bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/25",
+    AwaitingGeneralDirectorApproval: "bg-pink-500/12 text-pink-700 dark:text-pink-300 border-pink-500/25",
+    EdsFinalized: "bg-sky-500/12 text-sky-700 dark:text-sky-300 border-sky-500/25",
+    AwaitingRegistration: "bg-teal-500/12 text-teal-700 dark:text-teal-300 border-teal-500/25",
+    AwaitingPaperSignature: "bg-yellow-500/12 text-yellow-700 dark:text-yellow-300 border-yellow-500/25",
+    AwaitingDispatch: "bg-blue-500/12 text-blue-700 dark:text-blue-300 border-blue-500/25",
+    AwaitingArchive: "bg-lime-500/12 text-lime-700 dark:text-lime-300 border-lime-500/25",
+    Completed: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border",
+        colors[phase] ?? "bg-foreground/5 text-foreground/60 border-border/40"
+      )}
+    >
+      {outgoingPhaseLabel(phase, locale)}
+    </span>
+  );
+}
+
+function MemoPhaseBadge({ phase, locale }: { phase: MemoPhase; locale: string }) {
+  const colors: Partial<Record<MemoPhase, string>> = {
+    Draft: "bg-slate-500/12 text-slate-700 dark:text-slate-300 border-slate-500/25",
+    TranslationPending: "bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-indigo-500/25",
+    ReadyForSubmit: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 border-cyan-500/25",
+    SpecialistCoordination: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
+    AwaitingDeptHeadApproval: "bg-violet-500/12 text-violet-700 dark:text-violet-300 border-violet-500/25",
+    NeedsRevision: "bg-rose-500/12 text-rose-700 dark:text-rose-300 border-rose-500/25",
+    Registered: "bg-teal-500/12 text-teal-700 dark:text-teal-300 border-teal-500/25",
+    AwaitingTopManagement: "bg-purple-500/12 text-purple-700 dark:text-purple-300 border-purple-500/25",
+    RoutedToDepartment: "bg-orange-500/12 text-orange-700 dark:text-orange-300 border-orange-500/25",
+    AwaitingAcceptance: "bg-yellow-500/12 text-yellow-700 dark:text-yellow-300 border-yellow-500/25",
+    InExecution: "bg-sky-500/12 text-sky-700 dark:text-sky-300 border-sky-500/25",
+    AwaitingReview: "bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/25",
+    ExecutionNeedsRevision: "bg-rose-500/12 text-rose-700 dark:text-rose-300 border-rose-500/25",
+    AwaitingArchive: "bg-lime-500/12 text-lime-700 dark:text-lime-300 border-lime-500/25",
+    Completed: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border",
+        colors[phase] ?? "bg-foreground/5 text-foreground/60 border-border/40"
+      )}
+    >
+      {memoPhaseLabel(phase, locale)}
+    </span>
+  );
+}
+
+function OrderPhaseBadge({ phase, locale }: { phase: OrderPhase; locale: string }) {
+  const colors: Partial<Record<OrderPhase, string>> = {
+    Draft: "bg-slate-500/12 text-slate-700 dark:text-slate-300 border-slate-500/25",
+    AwaitingDeptHeadApproval: "bg-orange-500/12 text-orange-700 dark:text-orange-300 border-orange-500/25",
+    NeedsRevision: "bg-rose-500/12 text-rose-700 dark:text-rose-300 border-rose-500/25",
+    SpecialistCoordination: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
+    DepartmentCoordination: "bg-yellow-500/12 text-yellow-700 dark:text-yellow-300 border-yellow-500/25",
+    AwaitingLegalApproval: "bg-red-500/12 text-red-700 dark:text-red-300 border-red-500/25",
+    AwaitingSupervisingDeputyApproval: "bg-purple-500/12 text-purple-700 dark:text-purple-300 border-purple-500/25",
+    AwaitingFirstDeputyApproval: "bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/25",
+    AwaitingGeneralDirectorApproval: "bg-pink-500/12 text-pink-700 dark:text-pink-300 border-pink-500/25",
+    EdsFinalized: "bg-sky-500/12 text-sky-700 dark:text-sky-300 border-sky-500/25",
+    AwaitingRegistration: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 border-cyan-500/25",
+    AwaitingPaperSignature: "bg-teal-500/12 text-teal-700 dark:text-teal-300 border-teal-500/25",
+    AwaitingScanUpload: "bg-blue-500/12 text-blue-700 dark:text-blue-300 border-blue-500/25",
+    AwaitingDistribution: "bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-indigo-500/25",
+    AwaitingArchive: "bg-lime-500/12 text-lime-700 dark:text-lime-300 border-lime-500/25",
+    Completed: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border",
+        colors[phase] ?? "bg-foreground/5 text-foreground/60 border-border/40"
+      )}
+    >
+      {orderPhaseLabel(phase, locale)}
+    </span>
+  );
+}
+
 function ProcurementPhaseBadge({
   phase,
   step,
@@ -396,6 +849,7 @@ function ProcurementPhaseBadge({
     AwaitingApproval: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
     Marketing: "bg-pink-500/12 text-pink-700 dark:text-pink-300 border-pink-500/25",
     Contracts: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
+    Payment: "bg-teal-500/12 text-teal-700 dark:text-teal-300 border-teal-500/25",
     Completed: "bg-slate-500/12 text-slate-600 dark:text-slate-300 border-slate-500/25",
   };
 
@@ -445,11 +899,13 @@ function FilterChip({
   onClick,
   label,
   count,
+  accent,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
   count: number;
+  accent?: string;
 }) {
   return (
     <button
@@ -458,15 +914,15 @@ function FilterChip({
       className={cn(
         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all",
         active
-          ? "bg-gradient-to-r from-sky-500/15 to-blue-500/10 text-sky-700 dark:text-sky-300 shadow-sm ring-1 ring-sky-500/20"
+          ? accent ?? "bg-gradient-to-r from-sky-500/15 to-blue-500/10 text-sky-700 dark:text-sky-300 shadow-sm ring-1 ring-sky-500/20"
           : "text-foreground/50 hover:text-foreground hover:bg-white/60 dark:hover:bg-white/[0.06]"
       )}
     >
       {label}
       <span
         className={cn(
-          "text-[10px] tabular-nums px-1.5 py-0.5 rounded-md",
-          active ? "bg-sky-500/20 text-sky-700 dark:text-sky-300" : "bg-foreground/[0.06]"
+          "text-[10px] tabular-nums px-1.5 py-0.5 rounded-md font-semibold",
+          active ? "bg-black/[0.06] dark:bg-white/10" : "bg-foreground/[0.06]"
         )}
       >
         {count}

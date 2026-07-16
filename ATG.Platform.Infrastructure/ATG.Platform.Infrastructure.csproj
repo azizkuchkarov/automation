@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\ATG.Platform.Domain\ATG.Platform.Domain.csproj" />
@@ -10,11 +10,15 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.9" />
     <PackageReference Include="Minio" Version="6.0.4" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
+    <PackageReference Include="NPOI" Version="2.7.2" />
+    <PackageReference Include="QuestPDF" Version="2026.6.1" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
     <PackageReference Include="System.DirectoryServices.Protocols" Version="10.0.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
   </ItemGroup>
@@ -24,5 +28,22 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Hr\Assets\atg-logo.png" />
+    <EmbeddedResource Include="Hr\Assets\Fonts\arial.ttf" />
+    <EmbeddedResource Include="Hr\Assets\Fonts\arialbd.ttf" />
+    <Content Include="Dcs\Templates\RfqMaterial.doc" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Dcs\Templates\RfqService.doc" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Dcs\Templates\RfqMaterial.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Dcs\Templates\RfqService.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Dcs\Templates\Plans\PlanSbp.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Dcs\Templates\Plans\PlanLps.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Dcs\Templates\Plans\PlanSps.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Dcs\Templates\Plans\PlanQrs.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Dcs\Templates\Plans\PlanDps.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Hr\Templates\BusinessTripOrder.docx" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Hr\Templates\BusinessTripCertificate.xlsx" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
 </Project>

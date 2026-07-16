@@ -6,6 +6,8 @@ public class Department
     public Guid OrganizationId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string NameEn { get; set; } = string.Empty;
+    /// <summary>Russian name in genitive case (родительный падеж), e.g. for «Служебная записка …».</summary>
+    public string? NameGenitive { get; set; }
     public string Code { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }
     public bool IsActive { get; set; } = true;

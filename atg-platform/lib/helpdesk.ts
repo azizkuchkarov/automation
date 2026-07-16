@@ -2,6 +2,43 @@ export type TicketCategory = "IT" | "Administration" | "Accountant" | "Transport
 export type TicketStatus = "Open" | "Assigned" | "Accepted" | "InProgress" | "Done" | "Closed" | "Cancelled";
 export type TicketPriority = "Low" | "Medium" | "High" | "Critical";
 
+export const TICKET_CATEGORIES: TicketCategory[] = [
+  "IT",
+  "Administration",
+  "Accountant",
+  "Transport",
+  "TravelTickets",
+  "Translator",
+];
+
+export const CATEGORY_SLUG: Record<TicketCategory, string> = {
+  IT: "it",
+  Administration: "administration",
+  Accountant: "accountant",
+  Transport: "transport",
+  TravelTickets: "travel",
+  Translator: "translator",
+};
+
+export function categoryFromSlug(slug: string): TicketCategory | null {
+  const match = Object.entries(CATEGORY_SLUG).find(([, value]) => value === slug);
+  return match ? (match[0] as TicketCategory) : null;
+}
+
+export function categorySlug(category: TicketCategory): string {
+  return CATEGORY_SLUG[category];
+}
+
+export function categoryPath(locale: string, category: TicketCategory, section: "board" | "tickets" | "queue" | "new") {
+  const slug = categorySlug(category);
+  if (section === "queue") return `/${locale}/helpdesk/${slug}/tickets?view=queue`;
+  return `/${locale}/helpdesk/${slug}/${section}`;
+}
+
+export function countActiveTickets(board: TicketBoard): number {
+  return board.open.length + board.assigned.length + board.accepted.length + board.inProgress.length;
+}
+
 export interface TicketListItem {
   id: string;
   number: string;
@@ -52,6 +89,13 @@ export interface Ticket extends TicketListItem {
   startedAt?: string;
   completedAt?: string;
   closedAt?: string;
+  sourceLanguage?: string;
+  translatingLanguages?: string[];
+  linkedDocumentId?: string;
+  linkedOriginalFileName?: string;
+  linkedOriginalStorageKey?: string;
+  linkedTranslatedFileName?: string;
+  linkedTranslatedStorageKey?: string;
   comments: TicketComment[];
   activities: TicketActivity[];
 }

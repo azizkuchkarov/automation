@@ -26,6 +26,10 @@ public class Ticket
     public DateTime? CompletedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
 
+    public string? SourceLanguage { get; set; }
+    public string? TranslatingLanguage { get; set; }
+    public Guid? LinkedDocumentId { get; set; }
+
     public User Requester { get; set; } = null!;
     public Organization Organization { get; set; } = null!;
     public Department TargetDepartment { get; set; } = null!;

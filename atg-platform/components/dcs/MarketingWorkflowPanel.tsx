@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Circle, UserCheck, UserPlus } from "lucide-react";
+import { CheckCircle2, Circle, UserCheck, UserPlus, RotateCcw } from "lucide-react";
 import type { useTranslations } from "next-intl";
 import {
   MarketingBranchType,
@@ -16,7 +16,10 @@ import {
   marketingSubPhaseLabel,
 } from "@/lib/procurementRequest";
 import { StepCommentThread } from "@/components/dcs/StepCommentThread";
-import { MarketingStep4RfqPanel } from "@/components/dcs/MarketingStep4RfqPanel";
+import { MarketingStep3RfqPanel } from "@/components/dcs/MarketingStep4RfqPanel";
+import { MarketingStep4ProposalsPanel } from "@/components/dcs/MarketingStep4ProposalsPanel";
+import { MarketingStep5ApprovedPanel } from "@/components/dcs/MarketingStep5ApprovedPanel";
+import { MarketingStep6PlanPanel } from "@/components/dcs/MarketingStep6PlanPanel";
 import { MarketingStep8PlanApprovalPanel } from "@/components/dcs/MarketingStep8PlanApprovalPanel";
 import { MarketingStep9RegistrationPanel } from "@/components/dcs/MarketingStep9RegistrationPanel";
 import { WorkflowStepNavigator } from "@/components/dcs/WorkflowStepNavigator";
@@ -35,6 +38,7 @@ interface Props {
   stepComment: string;
   setStepComment: (v: string) => void;
   onAssign: () => void;
+  onReturnToInitiator?: () => void;
   onAccept: () => void;
   onCompleteMarketingStep: (step: number, comment?: string) => void;
   onRecordMarketingBranch: (branch: MarketingBranchType, resolve: boolean) => void;
@@ -56,6 +60,7 @@ export function MarketingWorkflowPanel({
   stepComment,
   setStepComment,
   onAssign,
+  onReturnToInitiator,
   onAccept,
   onCompleteMarketingStep,
   onRecordMarketingBranch,
@@ -123,6 +128,7 @@ export function MarketingWorkflowPanel({
           setStepComment={setStepComment}
           comments={comments}
           onAssign={onAssign}
+          onReturnToInitiator={onReturnToInitiator}
           onAccept={onAccept}
           onCompleteMarketingStep={onCompleteMarketingStep}
           onRecordMarketingBranch={onRecordMarketingBranch}
@@ -167,6 +173,7 @@ function MarketingStepCard({
   setStepComment,
   comments,
   onAssign,
+  onReturnToInitiator,
   onAccept,
   onCompleteMarketingStep,
   onRecordMarketingBranch,
@@ -190,6 +197,7 @@ function MarketingStepCard({
   setStepComment: (v: string) => void;
   comments: ProcurementStepComment[];
   onAssign: () => void;
+  onReturnToInitiator?: () => void;
   onAccept: () => void;
   onCompleteMarketingStep: (step: number, comment?: string) => void;
   onRecordMarketingBranch: (branch: MarketingBranchType, resolve: boolean) => void;
@@ -205,8 +213,8 @@ function MarketingStepCard({
   const isStep1 = step.number === 1;
   const planApprovers = req.marketingPlanApprovers ?? [];
   const allPlanApproved = planApprovers.length > 0 && planApprovers.every((a) => a.status === "Approved");
-  const canCompleteStep8 = step.number === 8 ? allPlanApproved : true;
-  const hideGenericComplete = step.number === 9;
+  const canCompleteStep7 = step.number === 7 ? allPlanApproved : true;
+  const hideGenericComplete = step.number === 8;
 
   return (
     <div
@@ -251,6 +259,7 @@ function MarketingStepCard({
                 setStepComment={setStepComment}
                 acting={acting}
                 onAssign={onAssign}
+                onReturnToInitiator={marketingPerms?.canReturnToInitiator ? onReturnToInitiator : undefined}
               />
             )}
 
@@ -285,16 +294,44 @@ function MarketingStepCard({
               </p>
             )}
 
-            {active && !isStep1 && step.number === 4 && (
-              <MarketingStep4RfqPanel
+            {active && !isStep1 && step.number === 3 && (
+              <MarketingStep3RfqPanel
                 documentId={req.id}
                 canEdit={!!marketingPerms?.canCompleteCurrentStep}
                 acting={acting}
-                t={(key) => t(`step4.${key}`)}
+                t={(key) => t(`step3.${key}`)}
               />
             )}
 
-            {active && step.number === 8 && onSubmitPlanApproval && onApprovePlan && onRejectPlan && (
+            {active && step.number === 4 && (
+              <MarketingStep4ProposalsPanel
+                documentId={req.id}
+                canEdit={!!marketingPerms?.canCompleteCurrentStep}
+                canReview={!!marketingPerms?.canReviewProposals}
+                canReviewEngineer={!!marketingPerms?.canReviewProposalsAsEngineer}
+                acting={acting}
+                t={(key) => t(`step4Proposals.${key}`)}
+              />
+            )}
+
+            {active && step.number === 5 && (
+              <MarketingStep5ApprovedPanel
+                documentId={req.id}
+                t={(key) => t(`step5Approved.${key}`)}
+              />
+            )}
+
+            {active && step.number === 6 && (
+              <MarketingStep6PlanPanel
+                documentId={req.id}
+                locale={locale}
+                canEdit={!!marketingPerms?.canCompleteCurrentStep}
+                acting={acting}
+                t={(key) => t(`step6Plan.${key}`)}
+              />
+            )}
+
+            {active && step.number === 7 && onSubmitPlanApproval && onApprovePlan && onRejectPlan && (
               <MarketingStep8PlanApprovalPanel
                 req={req}
                 locale={locale}
@@ -306,7 +343,7 @@ function MarketingStepCard({
               />
             )}
 
-            {active && step.number === 9 && onConfirmRegistration && (
+            {active && step.number === 8 && onConfirmRegistration && (
               <MarketingStep9RegistrationPanel
                 req={req}
                 locale={locale}
@@ -338,7 +375,7 @@ function MarketingStepCard({
                   acting={acting}
                   completePlaceholder={t("stepCommentRequired")}
                   completeAction={
-                    marketingPerms?.canCompleteCurrentStep && !branchActive && canCompleteStep8
+                    marketingPerms?.canCompleteCurrentStep && !branchActive && canCompleteStep7
                       ? {
                           label: t("markComplete"),
                           disabled: acting,
@@ -373,6 +410,7 @@ function AssignSpecialistForm({
   setStepComment,
   acting,
   onAssign,
+  onReturnToInitiator,
 }: {
   t: ReturnType<typeof useTranslations>;
   inputClass: string;
@@ -383,6 +421,7 @@ function AssignSpecialistForm({
   setStepComment: (v: string) => void;
   acting: boolean;
   onAssign: () => void;
+  onReturnToInitiator?: () => void;
 }) {
   const specialistId = selectedSpecialist.trim();
   const commentOk = stepComment.trim().length > 0;
@@ -431,6 +470,18 @@ function AssignSpecialistForm({
         <UserPlus size={14} className="mr-1.5" />
         {t("assignSpecialist")}
       </Button>
+      {onReturnToInitiator && (
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={acting || !commentOk}
+          onClick={onReturnToInitiator}
+          className="border-amber-500/40 text-amber-800 dark:text-amber-200"
+        >
+          <RotateCcw size={14} className="mr-1.5" />
+          {t("returnToInitiator")}
+        </Button>
+      )}
     </div>
   );
 }

@@ -14,6 +14,8 @@ public enum ProcurementRequestPhase
 
     Contracts,
 
+    Payment,
+
     Completed
 
 }

@@ -1,0 +1,15 @@
+B1	Командировочное удостоверение/Business trip reference  №3-bt
+D2	None
+E2	Иванов Иван Иванович
+D3	None
+E3	Ivan Ivanov
+D5	командированному  СП ООО "Asia Trans Gas" в Пекин (КНР)
+D6	who was sent to business trip by JV "Asia Trans Gas" LLC to Beijing city (CPR)
+D7	Пекин (КНР)/Beijing city (CPR)
+D8	None
+F8	Пр.№3-bt-Uz от 08.04.2026 г. 
+D9	None
+D10	None
+F10	6 дней с 10 апреля 2026 года по 15 апреля 2026 г
+D11	None
+D12	Действительно при предъявлении паспорта серия  ________________

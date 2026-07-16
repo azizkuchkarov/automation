@@ -12,12 +12,15 @@ import {
   isPlatformAdmin,
   deptLabel,
 } from "@/lib/helpdesk";
+import { translationLanguageLabel, translationLanguagesLabel } from "@/lib/incomingLetter";
+import { fileDownloadUrl } from "@/lib/files";
+import { DocumentFileUpload } from "@/components/dcs/DocumentFileUpload";
 import { useAuthStore } from "@/store/authStore";
 import { TicketPriorityBadge, TicketStatusBadge } from "@/components/helpdesk/TicketBadges";
 import { HelpdeskPageHeader } from "@/components/helpdesk/HelpdeskPageHeader";
 import { Button } from "@/components/ui/Button";
 import {
-  CheckCircle2, Play, ThumbsUp, UserPlus, MessageSquare, Clock, Circle,
+  CheckCircle2, Play, ThumbsUp, UserPlus, MessageSquare, Clock, Circle, Paperclip, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +35,7 @@ export default function TicketDetailPage() {
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const load = useCallback(() => {
     api.get(`/helpdesk/tickets/${id}`).then((r) => setTicket(r.data)).finally(() => setLoading(false));
@@ -70,6 +74,20 @@ export default function TicketDetailPage() {
     load();
   };
 
+  const uploadTranslation = async (fileName: string, storageKey: string) => {
+    setUploadError("");
+    setActionLoading(true);
+    try {
+      await api.post(`/helpdesk/tickets/${id}/upload-translation`, { fileName, storageKey });
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setUploadError(msg ?? "Upload failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center text-foreground/40">{t("loading")}</div>
@@ -83,6 +101,10 @@ export default function TicketDetailPage() {
 
   const isAssignee = user?.id === ticket.assigneeId;
   const canClose = (user?.id === ticket.requesterId || isAdmin) && ticket.status === "Done";
+  const canUploadTranslation = ticket.category === "Translator" && !!ticket.linkedDocumentId
+    && (canWorkflow || isAdmin)
+    && !["Done", "Closed", "Cancelled"].includes(ticket.status);
+  const needsTranslationUpload = !!(canUploadTranslation && !ticket.linkedTranslatedStorageKey);
 
   const inputClass =
     "rounded-lg border border-border/80 bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-atg-teal/30 focus:border-atg-teal/50";
@@ -110,7 +132,88 @@ export default function TicketDetailPage() {
             <div className="rounded-xl border border-border/80 bg-surface p-4 text-sm leading-relaxed whitespace-pre-wrap shadow-sm">
               {ticket.description || "—"}
             </div>
+            {ticket.category === "Translator" && (ticket.sourceLanguage || (ticket.translatingLanguages?.length ?? 0) > 0) && (
+              <div className="mt-3 grid sm:grid-cols-2 gap-3">
+                {ticket.sourceLanguage && (
+                  <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">{t("fields.sourceLanguage")}</p>
+                    <p className="font-medium mt-0.5">{translationLanguageLabel(ticket.sourceLanguage, locale)}</p>
+                  </div>
+                )}
+                {(ticket.translatingLanguages?.length ?? 0) > 0 && (
+                  <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-sm sm:col-span-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">{t("fields.translatingLanguage")}</p>
+                    <p className="font-medium mt-0.5">{translationLanguagesLabel(ticket.translatingLanguages, locale)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {ticket.linkedDocumentId && (
+              <div className="mt-3">
+                <a
+                  href={`/${locale}/automation/documents/${ticket.linkedDocumentId}`}
+                  className="text-sm text-atg-teal hover:underline"
+                >
+                  {t("fields.linkedIncomingLetter")}
+                </a>
+              </div>
+            )}
           </section>
+
+          {ticket.category === "Translator" && ticket.linkedDocumentId && (
+            <section className="mb-6 rounded-xl border border-border/80 bg-surface p-4 shadow-sm space-y-4">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/45">
+                {t("fields.originalDocument")}
+              </h2>
+              {ticket.linkedOriginalStorageKey ? (
+                <a
+                  href={fileDownloadUrl(ticket.linkedOriginalStorageKey, ticket.linkedOriginalFileName)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 text-sm text-atg-teal hover:underline"
+                >
+                  <Paperclip size={14} className="shrink-0" />
+                  <span className="truncate">{ticket.linkedOriginalFileName ?? ticket.linkedOriginalStorageKey}</span>
+                </a>
+              ) : (
+                <p className="text-sm text-foreground/40">—</p>
+              )}
+
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/45 pt-2 border-t border-border/50">
+                {t("fields.translatedDocument")}
+              </h2>
+              {ticket.linkedTranslatedStorageKey ? (
+                <a
+                  href={fileDownloadUrl(ticket.linkedTranslatedStorageKey, ticket.linkedTranslatedFileName)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300 hover:underline"
+                >
+                  <FileText size={14} className="shrink-0" />
+                  <span className="truncate">{ticket.linkedTranslatedFileName ?? ticket.linkedTranslatedStorageKey}</span>
+                </a>
+              ) : canUploadTranslation ? (
+                <div className="space-y-2">
+                  <DocumentFileUpload
+                    folder="incoming-letters/translations"
+                    fileName={ticket.linkedTranslatedFileName}
+                    storageKey={ticket.linkedTranslatedStorageKey}
+                    disabled={actionLoading}
+                    onUploaded={uploadTranslation}
+                    onError={setUploadError}
+                    labels={{
+                      uploading: "Uploading…",
+                      attached: "Attached",
+                      pick: t("fields.uploadTranslation"),
+                    }}
+                  />
+                  {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+                </div>
+              ) : (
+                <p className="text-sm text-foreground/40">—</p>
+              )}
+            </section>
+          )}
 
           {(canAssign || canWorkflow || canClose) && (
             <section className="mb-6 rounded-xl border border-border/80 bg-surface p-4 shadow-sm">
@@ -158,10 +261,21 @@ export default function TicketDetailPage() {
                   </Button>
                 )}
                 {canWorkflow && ticket.status === "InProgress" && (
-                  <Button size="sm" disabled={actionLoading} onClick={() => action("complete")}>
-                    <CheckCircle2 size={14} className="mr-1" />
-                    {t("actions.done")}
-                  </Button>
+                  <>
+                    {needsTranslationUpload && (
+                      <p className="w-full text-xs text-amber-600 dark:text-amber-400">
+                        {t("fields.translationRequired")}
+                      </p>
+                    )}
+                    <Button
+                      size="sm"
+                      disabled={actionLoading || needsTranslationUpload}
+                      onClick={() => action("complete")}
+                    >
+                      <CheckCircle2 size={14} className="mr-1" />
+                      {t("actions.done")}
+                    </Button>
+                  </>
                 )}
                 {canClose && (
                   <Button size="sm" disabled={actionLoading} onClick={() => action("close")}>

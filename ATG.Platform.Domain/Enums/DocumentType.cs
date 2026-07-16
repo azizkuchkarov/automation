@@ -15,5 +15,6 @@ public enum DocumentType
     Accounting,
     SupplySection,
     ProcurementRequest,
-    HrLeaveRequest
+    HrLeaveRequest,
+    HrBusinessTripRequest
 }

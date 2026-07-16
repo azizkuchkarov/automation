@@ -33,6 +33,7 @@ public class MarketingRecord
     public DateTime? RfqPreparedAt { get; set; }
     public string? RfqDocumentStorageKey { get; set; }
     public string? RfqDocumentFileName { get; set; }
+    public DateOnly? RfqCommercialProposalDeadline { get; set; }
     public bool RfqPublishedAtgSite { get; set; }
     public bool RfqPublishedTenderweek { get; set; }
     public bool RfqSentToVendor { get; set; }

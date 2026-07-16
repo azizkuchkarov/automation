@@ -8,25 +8,41 @@ import api from "@/lib/api";
 import {
   TaskAnalytics,
   TaskNavigationDto,
+  TaskPriority,
   statusLabel,
   sourceLabel,
+  priorityLabel,
   statusBadgeClass,
   sourceBadgeClass,
-  priorityBadgeClass,
   canUseOrgNav,
   buildAnalyticsParams,
 } from "@/lib/tasks";
 import { useAuthStore } from "@/store/authStore";
 import {
   TaskKpiRow,
-  TaskDonutChart,
-  TaskTrendChart,
+  TaskInsightsPanel,
+  TaskStatusDonutChart,
+  TaskActivityChart,
+  TaskVelocityChart,
+  TaskPriorityRadarChart,
+  TaskAgingChart,
   TaskSourceChart,
   EmployeeTaskBreakdown,
 } from "@/components/tasks/TaskCharts";
+import {
+  TaskHealthGauge,
+  TaskSlaPanel,
+  TaskCycleTimeChart,
+  TaskActivityHeatmap,
+  TaskForecastChart,
+  TaskBurndownChart,
+  TaskWorkloadPanel,
+  TaskPriorityMatrixChart,
+  TaskRiskQueue,
+} from "@/components/tasks/TaskAdvancedCharts";
 import { TaskOrgNavigator, TaskScopeSelection } from "@/components/tasks/TaskOrgNavigator";
 import { Button } from "@/components/ui/Button";
-import { RefreshCw, Plus, Users, User, BarChart3 } from "lucide-react";
+import { RefreshCw, Plus, Users, User, BarChart3, BrainCircuit } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function TasksDashboardPage() {
@@ -58,6 +74,42 @@ export default function TasksDashboardPage() {
 
   const sl = (s: Parameters<typeof statusLabel>[0]) => statusLabel(s, (k) => t(k as "status.New"));
   const src = (s: Parameters<typeof sourceLabel>[0]) => sourceLabel(s, (k) => t(k as "sources.Manual"));
+  const pl = (p: TaskPriority) => priorityLabel(p, (k) => t(k as "priority.Low"));
+
+  const insightText = (code: string, value?: number, context?: string) => {
+    switch (code) {
+      case "overdue":
+        return t("insights.overdue", { count: Math.round(value ?? 0) });
+      case "high_completion":
+      case "low_completion":
+        return t(`insights.${code}` as "insights.high_completion", { value: value ?? 0 });
+      case "throughput_up":
+      case "throughput_down":
+        return t(`insights.${code}` as "insights.throughput_up", { value: Math.abs(value ?? 0) });
+      case "dominant_source":
+        return t("insights.dominant_source", {
+          value: value ?? 0,
+          context: context ? src(context as Parameters<typeof sourceLabel>[0]) : "",
+        });
+      case "stale_tasks":
+        return t("insights.stale_tasks", { count: Math.round(value ?? 0) });
+      case "sla_breach":
+      case "sla_excellent":
+        return t(`insights.${code}` as "insights.sla_breach", { value: value ?? 0 });
+      case "workload_imbalance":
+      case "workload_balanced":
+        return t(`insights.${code}` as "insights.workload_balanced", { value: value ?? 0 });
+      case "critical_risk":
+        return t("insights.critical_risk", { count: Math.round(value ?? 0) });
+      case "health_excellent":
+      case "health_critical":
+        return t(`insights.${code}` as "insights.health_excellent", { value: value ?? 0, context: context ?? "" });
+      case "forecast_surge":
+        return t("insights.forecast_surge", { value: Math.round(value ?? 0) });
+      default:
+        return code;
+    }
+  };
 
   const scopeSubtitle = () => {
     if (!data) return "";
@@ -66,6 +118,19 @@ export default function TasksDashboardPage() {
     if (data.organizationId) return t("dashboard.orgScope", { name: data.scopeLabel });
     return showNav ? t("dashboard.enterpriseScope") : t("dashboard.deptScope", { name: data.scopeLabel });
   };
+
+  const kpiLabels = {
+    new: t("kpi.new"),
+    progress: t("kpi.progress"),
+    done: t("kpi.done"),
+    completion: t("kpi.completion"),
+    overdue: t("kpi.overdue"),
+    avgResolution: t("kpi.avgResolution"),
+    throughput: t("kpi.throughput"),
+    days: t("kpi.days"),
+  };
+
+  const trendLabels = { new: t("kpi.new"), progress: t("kpi.progress"), done: t("kpi.done") };
 
   return (
     <>
@@ -108,59 +173,231 @@ export default function TasksDashboardPage() {
 
           <div className="flex-1 min-w-0 space-y-5">
             {loading && !data ? (
-              <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-28 rounded-2xl bg-border/30 animate-pulse" />
-                ))}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-28 rounded-2xl bg-border/30 animate-pulse" />
+                  ))}
+                </div>
+                <div className="grid lg:grid-cols-3 gap-5">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-72 rounded-2xl bg-border/30 animate-pulse" />
+                  ))}
+                </div>
               </div>
             ) : data ? (
               <>
-                <TaskKpiRow
-                  analytics={data}
-                  labels={{
-                    new: t("kpi.new"),
-                    progress: t("kpi.progress"),
-                    done: t("kpi.done"),
-                    completion: t("kpi.completion"),
-                  }}
+                <TaskKpiRow analytics={data} labels={kpiLabels} />
+
+                <TaskInsightsPanel
+                  insights={data.insights ?? []}
+                  insightLabel={insightText}
+                  title={t("dashboard.insights")}
                 />
 
+                {data.healthScore && (
+                  <>
+                    <div className="flex items-center gap-2 pt-1">
+                      <BrainCircuit size={18} className="text-atg-amber" />
+                      <h2 className="text-sm font-bold uppercase tracking-wider text-foreground/60">
+                        {t("dashboard.advanced")}
+                      </h2>
+                      <div className="flex-1 h-px bg-border/60" />
+                    </div>
+
+                    <div className="grid lg:grid-cols-3 gap-5">
+                      <TaskHealthGauge
+                        health={data.healthScore}
+                        labels={{
+                          title: t("dashboard.health"),
+                          subtitle: t("dashboard.healthSubtitle"),
+                          score: t("health.score"),
+                          completion: t("health.completion"),
+                          sla: t("health.sla"),
+                          velocity: t("health.velocity"),
+                          balance: t("health.balance"),
+                          penalty: t("health.penalty"),
+                        }}
+                      />
+                      {data.slaMetrics && (
+                        <TaskSlaPanel
+                          sla={data.slaMetrics}
+                          labels={{
+                            title: t("dashboard.sla"),
+                            subtitle: t("dashboard.slaSubtitle"),
+                            compliance: t("sla.compliance"),
+                            onTime: t("sla.onTime"),
+                            late: t("sla.late"),
+                            atRisk: t("sla.atRisk"),
+                            withDue: t("sla.withDue"),
+                          }}
+                        />
+                      )}
+                      {data.workloadBalance && (
+                        <TaskWorkloadPanel
+                          balance={data.workloadBalance}
+                          labels={{
+                            title: t("dashboard.workload"),
+                            subtitle: t("dashboard.workloadSubtitle"),
+                            score: t("workload.score"),
+                            gini: t("workload.gini"),
+                            assignees: t("workload.assignees"),
+                            avg: t("workload.avg"),
+                            max: t("workload.max"),
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+                      {data.cycleTime && (
+                        <TaskCycleTimeChart
+                          cycle={data.cycleTime}
+                          labels={{
+                            title: t("dashboard.cycleTime"),
+                            subtitle: t("dashboard.cycleTimeSubtitle"),
+                            p50: t("cycle.p50"),
+                            p75: t("cycle.p75"),
+                            p90: t("cycle.p90"),
+                            mean: t("cycle.mean"),
+                            days: t("kpi.days"),
+                          }}
+                        />
+                      )}
+                      {data.activityHeatmap && (
+                        <TaskActivityHeatmap
+                          cells={data.activityHeatmap}
+                          labels={{
+                            title: t("dashboard.heatmap"),
+                            subtitle: t("dashboard.heatmapSubtitle"),
+                            created: t("heatmap.created"),
+                            completed: t("heatmap.completed"),
+                          }}
+                        />
+                      )}
+                      {data.priorityMatrix && (
+                        <TaskPriorityMatrixChart
+                          matrix={data.priorityMatrix}
+                          priorityLabel={pl}
+                          statusLabel={sl}
+                          labels={{
+                            title: t("dashboard.matrix"),
+                            subtitle: t("dashboard.matrixSubtitle"),
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div className="grid lg:grid-cols-2 gap-5">
+                      {data.completionForecast && (
+                        <TaskForecastChart
+                          forecast={data.completionForecast}
+                          labels={{
+                            title: t("dashboard.forecast"),
+                            subtitle: t("dashboard.forecastSubtitle"),
+                            actual: t("forecast.actual"),
+                            projected: t("forecast.projected"),
+                          }}
+                        />
+                      )}
+                      {data.burndown && (
+                        <TaskBurndownChart
+                          burndown={data.burndown}
+                          labels={{
+                            title: t("dashboard.burndown"),
+                            subtitle: t("dashboard.burndownSubtitle"),
+                            remaining: t("burndown.remaining"),
+                            ideal: t("burndown.ideal"),
+                            completed: t("burndown.completed"),
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    {data.riskQueue && data.riskQueue.length > 0 && (
+                      <TaskRiskQueue
+                        risks={data.riskQueue}
+                        priorityLabel={pl}
+                        labels={{
+                          title: t("dashboard.riskQueue"),
+                          subtitle: t("dashboard.riskQueueSubtitle"),
+                          task: t("risk.task"),
+                          assignee: t("risk.assignee"),
+                          priority: t("risk.priority"),
+                          score: t("risk.score"),
+                          age: t("risk.age"),
+                          days: t("kpi.days"),
+                          overdue: t("risk.overdue"),
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+
                 <div className="grid lg:grid-cols-3 gap-5">
-                  <div className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold mb-4 text-foreground/80">{t("dashboard.bySource")}</h2>
-                    <TaskSourceChart bySource={data.bySource} sourceLabel={src} />
-                  </div>
-                  <div className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold mb-4 text-foreground/80">{t("dashboard.distribution")}</h2>
-                    <TaskDonutChart distribution={data.statusDistribution} statusLabel={sl} />
-                  </div>
-                  <div className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm lg:col-span-1">
-                    <h2 className="text-sm font-semibold mb-4 text-foreground/80">{t("dashboard.trend")}</h2>
-                    <TaskTrendChart
-                      trend={data.weeklyTrend}
-                      labels={{ new: t("kpi.new"), progress: t("kpi.progress"), done: t("kpi.done") }}
-                    />
-                  </div>
+                  <TaskActivityChart
+                    trend={data.weeklyTrend ?? []}
+                    labels={trendLabels}
+                    title={t("dashboard.trend")}
+                    subtitle={t("dashboard.trendSubtitle")}
+                  />
+                  <TaskStatusDonutChart
+                    distribution={data.statusDistribution}
+                    statusLabel={sl}
+                    title={t("dashboard.distribution")}
+                  />
                 </div>
 
-                {data.byEmployee && data.byEmployee.length > 0 && (
-                  <div className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold mb-4 text-foreground/80 flex items-center gap-2">
-                      <Users size={16} className="text-atg-amber" />
-                      {t("dashboard.byEmployee")}
-                    </h2>
+                <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  <TaskVelocityChart
+                    velocity={data.velocityTrend ?? []}
+                    labels={{
+                      completed: t("velocity.completed"),
+                      movingAvg: t("velocity.movingAvg"),
+                    }}
+                    title={t("dashboard.velocity")}
+                    subtitle={t("dashboard.velocitySubtitle")}
+                  />
+                  <TaskPriorityRadarChart
+                    byPriority={data.byPriority ?? []}
+                    priorityLabel={pl}
+                    title={t("dashboard.priority")}
+                    subtitle={t("dashboard.prioritySubtitle")}
+                  />
+                  <TaskAgingChart
+                    buckets={data.agingBuckets ?? []}
+                    bucketLabel={(key) => t(`aging.${key}` as "aging.0_3")}
+                    title={t("dashboard.aging")}
+                    subtitle={t("dashboard.agingSubtitle")}
+                  />
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-5">
+                  <TaskSourceChart
+                    bySource={data.bySource}
+                    sourceLabel={src}
+                    title={t("dashboard.bySource")}
+                  />
+
+                  {data.byEmployee && data.byEmployee.length > 0 ? (
                     <EmployeeTaskBreakdown
                       employees={data.byEmployee}
+                      title={t("dashboard.byEmployee")}
                       labels={{
                         employee: t("fields.employee"),
                         new: t("kpi.new"),
                         progress: t("kpi.progress"),
                         done: t("kpi.done"),
                         total: t("fields.total"),
+                        completion: t("kpi.completion"),
                       }}
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm flex items-center justify-center min-h-[220px]">
+                      <p className="text-sm text-foreground/40">{t("dashboard.personalScope")}</p>
+                    </div>
+                  )}
+                </div>
 
                 <div className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
@@ -178,7 +415,9 @@ export default function TasksDashboardPage() {
                           key={`${task.source}-${task.id}`}
                           href={task.source === "HelpDesk" && task.externalId
                             ? `/${locale}/helpdesk/tickets/${task.externalId}`
-                            : `/${locale}/tasks/list`}
+                            : task.source === "DCS" && task.externalId
+                              ? `/${locale}/automation/documents/${task.externalId}`
+                              : `/${locale}/tasks/list`}
                           className="flex items-center gap-3 p-3 rounded-xl border border-border/50 hover:border-atg-amber/30 hover:bg-atg-amber/[0.02] transition-all group"
                         >
                           <span className="font-mono text-xs font-bold text-atg-amber w-24 shrink-0">{task.number}</span>

@@ -15,6 +15,9 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddResponseCompression();
+builder.Services.AddHealthChecks();
+
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
     {
@@ -31,11 +34,13 @@ builder.Services.AddScoped<INotificationPublisher, NotificationPublisher>();
 var hangfireEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true);
 if (hangfireEnabled)
 {
+    var hangfireConnection = builder.Configuration.GetConnectionString("Hangfire")
+        ?? builder.Configuration.GetConnectionString("Default");
     builder.Services.AddHangfire(c => c
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
         .UseSimpleAssemblyNameTypeSerializer()
         .UseRecommendedSerializerSettings()
-        .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(builder.Configuration.GetConnectionString("Default"))));
+        .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(hangfireConnection)));
     builder.Services.AddHangfireServer();
 }
 
@@ -85,13 +90,19 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 var isDevelopment = app.Environment.IsDevelopment();
+var seedMasterData = app.Configuration.GetValue("DataSeeding:Enabled", isDevelopment);
 
 await DatabaseSeeder.SeedAsync(app.Services);
-await HoDataSeeder.SeedAsync(app.Services);
-await BmgmcDataSeeder.SeedAsync(app.Services);
-await StationDataSeeder.SeedAsync(app.Services);
-await TaskDataSeeder.SeedAsync(app.Services);
-await DcsDataSeeder.SeedAsync(app.Services);
+if (seedMasterData)
+{
+    await HoDataSeeder.SeedAsync(app.Services);
+    await BmgmcDataSeeder.SeedAsync(app.Services);
+    await StationDataSeeder.SeedAsync(app.Services);
+    await TaskDataSeeder.SeedAsync(app.Services);
+    await DcsDataSeeder.SeedAsync(app.Services);
+    await ItAutomationSeeder.SeedAsync(app.Services);
+    await HrBusinessTripWorkflowSeeder.SeedAsync(app.Services);
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -99,6 +110,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseResponseCompression();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseCors("Frontend");
 app.UseAuthentication();
@@ -122,8 +134,13 @@ if (hangfireEnabled)
         "approval-reminders",
         j => j.CheckPendingApprovalRemindersAsync(),
         Cron.Daily(4));
+    RecurringJob.AddOrUpdate<ItAutomationBackgroundJobs>(
+        "it-automation-expiry-warnings",
+        j => j.CheckExpiryWarningsAsync(),
+        Cron.Daily(7));
 }
 
+app.MapHealthChecks("/health");
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 

@@ -53,10 +53,42 @@ public class IncomingLetterController(IIncomingLetterService letters) : Controll
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
-    [HttpPost("{id:guid}/inform")]
-    public async Task<IActionResult> Inform(Guid id, [FromBody] InformTopManagersRequest request, CancellationToken ct)
+    [HttpPost("{id:guid}/send-to-translation")]
+    public async Task<IActionResult> SendToTranslation(Guid id, [FromBody] SendToTranslationRequest request, CancellationToken ct)
     {
-        var result = await letters.InformTopManagersAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        var result = await letters.SendToTranslationAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("translation-languages")]
+    public IActionResult GetTranslationLanguages() =>
+        Ok(TranslationLanguageOptions.Codes);
+
+    [HttpPost("{id:guid}/complete-translation")]
+    public async Task<IActionResult> CompleteTranslation(Guid id, CancellationToken ct)
+    {
+        var result = await letters.CompleteTranslationAsync(id, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/register-in-eds")]
+    public async Task<IActionResult> RegisterInEds(Guid id, CancellationToken ct)
+    {
+        var result = await letters.RegisterInEdsAsync(id, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/send-for-resolution")]
+    public async Task<IActionResult> SendForResolution(Guid id, [FromBody] SendForResolutionRequest request, CancellationToken ct)
+    {
+        var result = await letters.SendForResolutionAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/inform-additional")]
+    public async Task<IActionResult> InformAdditional(Guid id, [FromBody] InformTopManagersRequest request, CancellationToken ct)
+    {
+        var result = await letters.InformAdditionalManagersAsync(id, request, GetUserId()!.Value, GetIp(), ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
@@ -74,10 +106,38 @@ public class IncomingLetterController(IIncomingLetterService letters) : Controll
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
-    [HttpPost("{id:guid}/complete")]
-    public async Task<IActionResult> Complete(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/accept")]
+    public async Task<IActionResult> Accept(Guid id, [FromBody] AcceptExecutionRequest request, CancellationToken ct)
     {
-        var result = await letters.CompleteAsync(id, GetUserId()!.Value, GetIp(), ct);
+        var result = await letters.AcceptExecutionAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/report")]
+    public async Task<IActionResult> Report(Guid id, CancellationToken ct)
+    {
+        var result = await letters.ReportCompletionAsync(id, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/request-revision")]
+    public async Task<IActionResult> RequestRevision(Guid id, [FromBody] IncomingLetterCommentRequest request, CancellationToken ct)
+    {
+        var result = await letters.RequestRevisionAsync(id, request, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/accept-completion")]
+    public async Task<IActionResult> AcceptCompletion(Guid id, CancellationToken ct)
+    {
+        var result = await letters.AcceptCompletionAsync(id, GetUserId()!.Value, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    {
+        var result = await letters.ArchiveAsync(id, GetUserId()!.Value, GetIp(), ct);
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 

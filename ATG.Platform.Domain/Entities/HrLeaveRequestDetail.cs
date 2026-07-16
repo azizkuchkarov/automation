@@ -13,9 +13,15 @@ public class HrLeaveRequestDetail
     public Guid? HrTaskId { get; set; }
     public DateTime? HrReviewCompletedAt { get; set; }
     public DateTime? ApprovedAt { get; set; }
+    public string? SigningPayloadHash { get; set; }
+    public string? PdfStorageKey { get; set; }
+    public string? PdfSignedStorageKey { get; set; }
+    public string? PdfPresentationStorageKey { get; set; }
+    public DateTime? EimzoCompletedAt { get; set; }
 
     public Document Document { get; set; } = null!;
     public Department HrDepartment { get; set; } = null!;
     public ICollection<HrLeaveRequestItem> Items { get; set; } = [];
     public ICollection<HrLeaveApprover> Approvers { get; set; } = [];
+    public ICollection<HrLeaveSignature> Signatures { get; set; } = [];
 }

@@ -8,6 +8,11 @@ public class MarketingProcurementPlan
     public Guid MarketingRecordId { get; set; }
     public int Version { get; set; } = 1;
     public ProcurementMethodType ProcurementMethod { get; set; }
+    public MarketingPlanRegistrationMethod? RegistrationMethod { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? TemplateStorageKey { get; set; }
+    public string? TemplateFileName { get; set; }
+    public DateTime? RegisteredAt { get; set; }
     public decimal? StartPrice { get; set; }
     public string? StartPriceCurrency { get; set; }
     public bool VatConsidered { get; set; }

@@ -62,7 +62,24 @@ export interface HrLeavePermissions {
   canSubmit: boolean;
   canHrReview: boolean;
   canApprove: boolean;
+  canEimzoApprove: boolean;
   canReject: boolean;
+}
+
+export interface HrLeaveSignature {
+  id: string;
+  kind: string;
+  signerName: string;
+  signerPinpp?: string;
+  signedAt: string;
+  certificateSerial?: string;
+}
+
+export interface HrLeaveSigningPackage {
+  jsonBase64: string;
+  pdfBase64: string;
+  payloadSha256: string;
+  number: string;
 }
 
 export interface HrLeaveRequest {
@@ -85,7 +102,55 @@ export interface HrLeaveRequest {
   items: HrLeaveItem[];
   approvers: HrLeaveApprover[];
   timeline: HrLeaveTimelineEvent[];
+  signatures: HrLeaveSignature[];
   permissions: HrLeavePermissions;
+}
+
+export type HrLeaveDownloadKind = "pdf" | "signed-pdf" | "signed-pkcs7" | "json-signature";
+
+function parseDownloadFileName(contentDisposition: string | undefined, fallback: string) {
+  if (!contentDisposition) return fallback;
+  const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(contentDisposition);
+  return match?.[1] ? decodeURIComponent(match[1].replace(/"/g, "")) : fallback;
+}
+
+export async function downloadHrLeaveFile(requestId: string, kind: HrLeaveDownloadKind) {
+  const api = (await import("@/lib/api")).default;
+  const response = await api.get(`/hr/leave-requests/${requestId}/download/${kind}`, {
+    responseType: "blob",
+  });
+
+  const blob = response.data as Blob;
+  const contentType = String(response.headers["content-type"] ?? blob.type);
+  if (contentType.includes("application/json") || contentType.includes("text/plain")) {
+    try {
+      const text = await blob.text();
+      const json = JSON.parse(text) as { error?: string };
+      throw new Error(json.error ?? "Download failed");
+    } catch (err) {
+      if (err instanceof Error && err.message !== "Download failed") throw err;
+      throw new Error("Download failed");
+    }
+  }
+
+  const fallback =
+    kind === "pdf"
+      ? "leave.pdf"
+      : kind === "signed-pdf"
+        ? "leave_signed.pdf"
+        : kind === "signed-pkcs7"
+          ? "leave_signed.p7m"
+          : "leave_json.p7s";
+  const fileName = parseDownloadFileName(response.headers["content-disposition"], fallback);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export interface HrLeaveListItem {

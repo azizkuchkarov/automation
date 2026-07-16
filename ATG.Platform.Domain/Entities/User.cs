@@ -6,6 +6,10 @@ public class User
 {
     public Guid Id { get; set; }
     public string? EmployeeId { get; set; }
+    public string? Pinpp { get; set; }
+    public string? PassportSeries { get; set; }
+    public string? PassportNumber { get; set; }
+    public DateTime? ProfileCompletedAt { get; set; }
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string? MiddleName { get; set; }

@@ -1,3 +1,8 @@
+import type { IncomingLetterPhase } from "@/lib/incomingLetter";
+import type { OutgoingLetterPhase } from "@/lib/outgoingLetter";
+import type { MemoPhase } from "@/lib/memo";
+import type { OrderPhase } from "@/lib/order";
+
 export type DocumentType =
   | "Incoming"
   | "Outgoing"
@@ -38,6 +43,10 @@ export interface DocumentListItem {
   procurementCurrentStep?: number;
   initiatorName?: string;
   priority?: "Low" | "Medium" | "High" | "Critical";
+  incomingLetterPhase?: IncomingLetterPhase;
+  outgoingLetterPhase?: OutgoingLetterPhase;
+  memoPhase?: MemoPhase;
+  orderPhase?: OrderPhase;
 }
 
 export interface DocumentActivity {
@@ -90,7 +99,23 @@ export const OFFICE_TYPES: { slug: string; type: DocumentType }[] = [
   { slug: "orders", type: "Order" },
 ];
 
+/** Top-level procurement menu items (Contracts is a nested group in the sidebar). */
 export const PROCUREMENT_TYPES: { slug: string; type: DocumentType }[] = [
+  { slug: "requests", type: "ProcurementRequest" },
+  { slug: "marketing", type: "Marketing" },
+  { slug: "accounting", type: "Accounting" },
+  { slug: "supply-section", type: "SupplySection" },
+];
+
+/** Contracts submenu under Procurement. */
+export const CONTRACTS_MENU: { slug: string; section?: "Domestic" | "International" }[] = [
+  { slug: "local", section: "Domestic" },
+  { slug: "international", section: "International" },
+  { slug: "payment" },
+];
+
+/** All procurement type slugs including contracts children (for routing helpers). */
+export const PROCUREMENT_ALL_TYPES: { slug: string; type: DocumentType }[] = [
   { slug: "requests", type: "ProcurementRequest" },
   { slug: "marketing", type: "Marketing" },
   { slug: "contracts", type: "Contract" },
@@ -99,7 +124,7 @@ export const PROCUREMENT_TYPES: { slug: string; type: DocumentType }[] = [
   { slug: "supply-section", type: "SupplySection" },
 ];
 
-export const ALL_TYPE_SLUGS = [...OFFICE_TYPES, ...PROCUREMENT_TYPES];
+export const ALL_TYPE_SLUGS = [...OFFICE_TYPES, ...PROCUREMENT_ALL_TYPES];
 
 export function slugToType(slug: string): DocumentType | undefined {
   return ALL_TYPE_SLUGS.find((t) => t.slug === slug)?.type;

@@ -5,6 +5,7 @@ namespace ATG.Platform.Application.DTOs;
 public record UserDto(
     Guid Id,
     string? EmployeeId,
+    string? Pinpp,
     string FirstName,
     string LastName,
     string? MiddleName,
@@ -29,7 +30,10 @@ public record UserDto(
     bool IsActive,
     string Language,
     DateTime? LastLoginAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? PassportSeries,
+    string? PassportNumber,
+    bool RequiresProfileSetup);
 
 public record CreateUserRequest(
     string EmployeeId,
@@ -44,7 +48,8 @@ public record CreateUserRequest(
     UserRole Role,
     string Language,
     string? Password,
-    bool UseLdap = false);
+    bool UseLdap = false,
+    string? Pinpp = null);
 
 public record ImportUsersRequest(Guid OrganizationId, IReadOnlyList<ImportUserRow> Users);
 
@@ -73,9 +78,18 @@ public record UpdateUserRequest(
     Guid? DepartmentId,
     Guid? PositionId,
     UserRole Role,
-    string Language);
+    string Language,
+    string? Pinpp = null);
 
 public record LoginRequest(string Email, string Password);
+
+public record SetPinppRequest(string Pinpp);
+
+public record CompleteMyProfileRequest(
+    string Pinpp,
+    string PassportSeries,
+    string PassportNumber,
+    string? Phone);
 
 public record LoginResponse(string AccessToken, string RefreshToken, UserDto User);
 

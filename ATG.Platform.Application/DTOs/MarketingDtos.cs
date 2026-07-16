@@ -18,6 +18,7 @@ public record MarketingRecordDto(
     string? DeadlineColor,
     Guid? MarketingExecutorId,
     string? MarketingExecutorName,
+    string? TasResponsibleName,
     Guid? AssignedByManagerId,
     string? AssignedByManagerName,
     DateOnly? HandoverDate,
@@ -32,6 +33,7 @@ public record MarketingRecordDto(
     DateTime? RfqPreparedAt,
     string? RfqDocumentStorageKey,
     string? RfqDocumentFileName,
+    DateOnly? RfqCommercialProposalDeadline,
     bool RfqPublishedAtgSite,
     bool RfqPublishedTenderweek,
     bool RfqSentToVendor,
@@ -86,7 +88,19 @@ public record MarketingOfferDto(
     string? AffiliationNote,
     MarketingOfferSource Source,
     string? AttachmentKey,
+    MarketingInitiatorReviewStatus InitiatorReviewStatus,
+    Guid? InitiatorReviewedById,
+    string? InitiatorReviewedByName,
+    DateTime? InitiatorReviewedAt,
+    string? InitiatorReviewComment,
+    MarketingInitiatorReviewStatus EngineerReviewStatus,
+    Guid? EngineerReviewedById,
+    string? EngineerReviewedByName,
+    DateTime? EngineerReviewedAt,
+    string? EngineerReviewComment,
     DateTime CreatedAt);
+
+public record ReviewMarketingOfferRequest(string Action, string? Comment);
 
 public record MarketingOffersSummaryDto(
     int CompliantCount,
@@ -118,10 +132,21 @@ public record MarketingRfqChannelRequestDto(
 
 public record UploadRfqDocumentRequest(string StorageKey, string FileName);
 
+public record RegisterRfqStep3Request(DateOnly CommercialProposalDeadline);
+
+public record RegisterMarketingPlanRequest(MarketingPlanRegistrationMethod RegistrationMethod);
+
+public record UploadMarketingPlanDocumentRequest(string StorageKey, string FileName);
+
 public record MarketingProcurementPlanDto(
     Guid Id,
     int Version,
     ProcurementMethodType ProcurementMethod,
+    MarketingPlanRegistrationMethod? RegistrationMethod,
+    string? RegistrationNumber,
+    string? TemplateStorageKey,
+    string? TemplateFileName,
+    DateTime? RegisteredAt,
     decimal? StartPrice,
     string? StartPriceCurrency,
     bool VatConsidered,

@@ -1,0 +1,34 @@
+=== sheet: Ким Н. (53x10) ===
+R1: C2=Командировочное удостоверение/Business trip reference  №123
+R2: C4=Выдано г-ну / г-же | C5=ААААА АААААААААА
+R3: C4=Issued to MR. / Mrs.  | C5=ААААА АААААААААА
+R4: C4=должность / position 
+R5: C4=командированному  СП ООО "Asia Trans Gas" в
+R6: C4=who was sent to business trip by JV "Asia Trans Gas" LLC to
+R7: C2=                                                г. Пекин (КНР)/Beijing city (CPR) | C4=место командировки / place of BT
+R8: C4=Основание: Приказ № | C6=Пр.№XXX-bt-Uz от XX.XX.202X г. 
+R9: C4=On basis of Order 
+R10: C4=Срок командировки | C6=X дня / дней с ХХ апреля 2026 года по ХХ  апреля 2026 г
+R11: C4=Dates of business trip
+R12: C4=Действительно при предъявлении паспорта серия  АB 1234567
+R13: C4=Valid upon presentation of passport 
+R15: C4=М. П. 
+R17: C5=Руководитель
+R18: C5=Director
+R21: C1=Убыл из | C7=Прибыл в_________________
+R22: C1=Departured from | C7=Arrived to
+R24: C1="____"_______________2026 г. | C7="____"_______________2026 г.
+R25: C1=Place of Stamp | C3=Signature | C7=Place of Stamp | C9=Signature
+R28: C1=Убыл из | C7=Прибыл в_________________
+R29: C1=Departured from | C7=Arrived to
+R31: C1="____"_______________2026 г. | C7="____"_______________2026 г.
+R33: C1=Place of Stamp | C3=Signature | C7=Place of Stamp | C9=Signature
+R36: C1=Задание, порученное на период командировки/Task assigned during business trip:
+R40: C1=Задание выдал/Task given by: | C6=Задание принял/Task accepted:
+R42: C1=Отчет о командировке/Business trip report:
+R43: C1=За период командировки/  During the period of business trip    | C6=с/from __________ 2026  по/till ___________ 2026
+R46: C1=Дата/Date | C4=2026 | C5=подпись/signature
+R48: C1=Заключение о выполненном задании/Conclusion on fulfilled task:
+R49: C1=______________________________________________________________________________________________
+R50: C1=______________________________________________________________________________________________
+R51: C1=Дата/Date | C4=2026 | C5=подпись/signature

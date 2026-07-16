@@ -1,0 +1,56 @@
+A21	Убыл из
+A22	Departured from
+A24	"____"_______________2026 г.
+A25	Place of Stamp
+A28	Убыл из
+A29	Departured from
+A31	"____"_______________2026 г.
+A33	Place of Stamp
+A36	Задание, порученное на период командировки/Task assigned during business trip:
+A40	Задание выдал/Task given by:
+A42	Отчет о командировке/Business trip report:
+A43	За период командировки/  During the period of business trip   
+A46	Дата/Date
+A48	Заключение о выполненном задании/Conclusion on fulfilled task:
+A49	______________________________________________________________________________________________
+A50	______________________________________________________________________________________________
+A51	Дата/Date
+B1	Командировочное удостоверение/Business trip reference  №123
+B7	                                                г. Пекин (КНР)/Beijing city (CPR)
+C25	Signature
+C33	Signature
+D10	Срок командировки
+D11	Dates of business trip
+D12	Действительно при предъявлении паспорта серия  АB 1234567
+D13	Valid upon presentation of passport 
+D15	М. П. 
+D2	Выдано г-ну / г-же
+D3	Issued to MR. / Mrs. 
+D4	должность / position 
+D46	2026
+D5	командированному  СП ООО "Asia Trans Gas" в
+D51	2026
+D6	who was sent to business trip by JV "Asia Trans Gas" LLC to
+D7	место командировки / place of BT
+D8	Основание: Приказ №
+D9	On basis of Order 
+E17	Руководитель
+E18	Director
+E2	ААААА АААААААААА
+E3	ААААА АААААААААА
+E46	подпись/signature
+E51	подпись/signature
+F10	X дня / дней с ХХ апреля 2026 года по ХХ  апреля 2026 г
+F40	Задание принял/Task accepted:
+F43	с/from __________ 2026  по/till ___________ 2026
+F8	Пр.№XXX-bt-Uz от XX.XX.202X г. 
+G21	Прибыл в_________________
+G22	Arrived to
+G24	"____"_______________2026 г.
+G25	Place of Stamp
+G28	Прибыл в_________________
+G29	Arrived to
+G31	"____"_______________2026 г.
+G33	Place of Stamp
+I25	Signature
+I33	Signature

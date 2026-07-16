@@ -40,6 +40,106 @@ export interface TaskTrendPoint {
   done: number;
 }
 
+export interface TaskPrioritySlice {
+  priority: TaskPriority;
+  count: number;
+  percent: number;
+}
+
+export interface TaskAgingBucket {
+  key: string;
+  count: number;
+  percent: number;
+  minDays: number;
+  maxDays?: number;
+}
+
+export interface TaskVelocityPoint {
+  label: string;
+  completed: number;
+  movingAverage: number;
+}
+
+export interface TaskInsight {
+  code: string;
+  severity: "good" | "warning" | "info";
+  value?: number;
+  context?: string;
+}
+
+export interface TaskHealthScore {
+  score: number;
+  grade: string;
+  completionComponent: number;
+  slaComponent: number;
+  velocityComponent: number;
+  balanceComponent: number;
+  riskPenalty: number;
+}
+
+export interface TaskSlaMetrics {
+  compliancePercent: number;
+  withDueDate: number;
+  onTime: number;
+  late: number;
+  atRisk: number;
+}
+
+export interface TaskCycleTime {
+  p50Days: number;
+  p75Days: number;
+  p90Days: number;
+  meanDays: number;
+}
+
+export interface TaskHeatmapCell {
+  dayOfWeek: number;
+  label: string;
+  created: number;
+  completed: number;
+  intensity: number;
+}
+
+export interface TaskForecastPoint {
+  label: string;
+  actual: number;
+  forecast?: number;
+  isProjected: boolean;
+}
+
+export interface TaskBurndownPoint {
+  label: string;
+  remaining: number;
+  ideal: number;
+  completed: number;
+}
+
+export interface TaskRiskItem {
+  id: string;
+  number: string;
+  title: string;
+  assigneeName: string;
+  priority: TaskPriority;
+  riskScore: number;
+  riskLevel: "low" | "medium" | "high" | "critical";
+  ageDays: number;
+  isOverdue: boolean;
+}
+
+export interface TaskWorkloadBalance {
+  balanceScore: number;
+  giniCoefficient: number;
+  assigneeCount: number;
+  avgLoad: number;
+  maxLoad: number;
+}
+
+export interface TaskPriorityStatusCell {
+  priority: TaskPriority;
+  status: WorkTaskStatus;
+  count: number;
+}
+
 export interface EmployeeTaskSummary {
   userId: string;
   fullName: string;
@@ -48,6 +148,7 @@ export interface EmployeeTaskSummary {
   inProgressCount: number;
   doneCount: number;
   total: number;
+  completionRate: number;
 }
 
 export interface TaskAnalytics {
@@ -63,7 +164,23 @@ export interface TaskAnalytics {
   completionRate: number;
   statusDistribution: TaskStatusSlice[];
   bySource: TaskSourceSlice[];
+  byPriority: TaskPrioritySlice[];
+  agingBuckets: TaskAgingBucket[];
   weeklyTrend: TaskTrendPoint[];
+  velocityTrend: TaskVelocityPoint[];
+  overdueCount: number;
+  avgResolutionDays: number;
+  throughputChangePercent: number;
+  insights: TaskInsight[];
+  healthScore?: TaskHealthScore;
+  slaMetrics?: TaskSlaMetrics;
+  cycleTime?: TaskCycleTime;
+  activityHeatmap?: TaskHeatmapCell[];
+  completionForecast?: TaskForecastPoint[];
+  burndown?: TaskBurndownPoint[];
+  riskQueue?: TaskRiskItem[];
+  workloadBalance?: TaskWorkloadBalance;
+  priorityMatrix?: TaskPriorityStatusCell[];
   recentTasks: TaskListItem[];
   byEmployee?: EmployeeTaskSummary[];
 }
@@ -99,12 +216,38 @@ export const STATUS_COLORS: Record<WorkTaskStatus, string> = {
   Cancelled: "#94a3b8",
 };
 
+export const PRIORITY_COLORS: Record<TaskPriority, string> = {
+  Low: "#94a3b8",
+  Medium: "#2563eb",
+  High: "#f97316",
+  Critical: "#dc2626",
+};
+
+export const RISK_COLORS: Record<TaskRiskItem["riskLevel"], string> = {
+  low: "#94a3b8",
+  medium: "#2563eb",
+  high: "#f97316",
+  critical: "#dc2626",
+};
+
+export const HEATMAP_SCALE = ["#f1f5f9", "#bfdbfe", "#60a5fa", "#2563eb", "#1e3a8a"];
+
+export const AGING_COLORS: Record<string, string> = {
+  "0_3": "#10b981",
+  "4_7": "#2563eb",
+  "8_14": "#f59e0b",
+  "15_plus": "#ef4444",
+};
 export const SOURCE_COLORS: Record<TaskSource, string> = {
   Manual: "#d97706",
   HelpDesk: "#0d9488",
   DCS: "#7c3aed",
   HR: "#2563eb",
 };
+
+export function priorityLabel(priority: TaskPriority, t: (k: string) => string) {
+  return t(`priority.${priority}`);
+}
 
 export function statusLabel(status: WorkTaskStatus, t: (k: string) => string) {
   if (status === "InProgress") return t("status.InProgress");

@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Columns3 } from "lucide-react";
+import { AlertCircle, Columns3 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { MarketingBoardColumn } from "@/lib/marketing";
 import { DcsPageHeader } from "@/components/dcs/DcsPageHeader";
-import { MarketingKanbanBoard } from "@/components/dcs/MarketingKanbanBoard";
+import {
+  MarketingKanbanBoard,
+  MarketingKanbanSkeleton,
+} from "@/components/dcs/MarketingKanbanBoard";
+import { dcsTheme } from "@/components/dcs/dcsTheme";
+import { cn } from "@/lib/utils";
 
 export default function MarketingBoardPage() {
   const t = useTranslations("dcs.marketing.board");
@@ -23,26 +28,31 @@ export default function MarketingBoardPage() {
   }, [t]);
 
   return (
-    <>
-      <DcsPageHeader
-        title={t("title")}
-        subtitle={t("subtitle")}
-        breadcrumb={t("title")}
-        icon={Columns3}
-        iconClassName="bg-violet-500/10 text-violet-600 dark:text-violet-400"
-      />
-      <div className="flex-1 overflow-auto px-6 py-6">
-        {error && (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-        {loading ? (
-          <p className="text-sm text-foreground/40">{t("loading")}</p>
-        ) : (
-          <MarketingKanbanBoard columns={columns} />
-        )}
+    <div className={cn("relative flex flex-col flex-1 min-h-0", dcsTheme.meshBg)}>
+      <div className={cn("absolute inset-0", dcsTheme.gridOverlay)} aria-hidden />
+      <div className="relative z-[1] flex flex-col flex-1 min-h-0">
+        <DcsPageHeader
+          title={t("title")}
+          subtitle={t("subtitle")}
+          breadcrumb={t("title")}
+          icon={Columns3}
+          iconClassName="bg-gradient-to-br from-pink-500/15 to-violet-500/15 text-pink-600 dark:text-pink-400"
+        />
+        <div className="flex-1 overflow-auto px-6 py-6">
+          {error && (
+            <div
+              className={cn(
+                "mb-5 flex items-start gap-3 rounded-2xl border border-red-500/25",
+                "bg-red-500/[0.06] px-4 py-3.5 text-sm text-red-700 dark:text-red-300"
+              )}
+            >
+              <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <p>{error}</p>
+            </div>
+          )}
+          {loading ? <MarketingKanbanSkeleton /> : <MarketingKanbanBoard columns={columns} />}
+        </div>
       </div>
-    </>
+    </div>
   );
 }

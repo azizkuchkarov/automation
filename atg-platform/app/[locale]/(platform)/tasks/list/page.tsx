@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import api from "@/lib/api";
+import type { PagedResult } from "@/lib/paged";
 import { TaskListItem, WorkTaskStatus, TaskSource, statusBadgeClass, sourceBadgeClass, priorityBadgeClass, statusLabel, sourceLabel, isDeptManager } from "@/lib/tasks";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
-import { Plus, Play, CheckCircle2, RotateCcw } from "lucide-react";
+import { Plus, Play, CheckCircle2, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const PAGE_SIZE = 50;
 
 export default function TasksListPage() {
   const t = useTranslations("tasks");
@@ -19,17 +22,33 @@ export default function TasksListPage() {
   const [statusFilter, setStatusFilter] = useState<WorkTaskStatus | "">("");
   const [sourceFilter, setSourceFilter] = useState<TaskSource | "">("");
   const [items, setItems] = useState<TaskListItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setPage(1);
+  }, [view, statusFilter, sourceFilter]);
 
   const load = () => {
     setLoading(true);
-    const params = new URLSearchParams({ view, pageSize: "100" });
+    const params = new URLSearchParams({
+      view,
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+    });
     if (statusFilter) params.set("status", statusFilter);
     if (sourceFilter) params.set("source", sourceFilter);
-    api.get(`/tasks?${params}`).then((r) => setItems(r.data.items)).finally(() => setLoading(false));
+    api
+      .get<PagedResult<TaskListItem>>(`/tasks?${params}`)
+      .then((r) => {
+        setItems(r.data.items);
+        setTotalCount(r.data.totalCount);
+      })
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [view, statusFilter, sourceFilter]);
+  useEffect(() => { load(); }, [view, statusFilter, sourceFilter, page]);
 
   const updateStatus = async (id: string, status: WorkTaskStatus) => {
     await api.patch(`/tasks/${id}/status`, { status });
@@ -41,6 +60,7 @@ export default function TasksListPage() {
   const views = isManager ? (["mine", "department"] as const) : (["mine"] as const);
   const statuses: (WorkTaskStatus | "")[] = ["", "New", "InProgress", "Done"];
   const sources: (TaskSource | "")[] = ["", "Manual", "HelpDesk", "DCS", "HR"];
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
     <>
@@ -131,6 +151,8 @@ export default function TasksListPage() {
                   <td className="px-4 py-3 font-mono text-xs font-bold text-atg-amber">
                     {task.source === "HelpDesk" && task.externalId ? (
                       <Link href={`/${locale}/helpdesk/tickets/${task.externalId}`} className="hover:underline">{task.number}</Link>
+                    ) : task.source === "DCS" && task.externalId ? (
+                      <Link href={`/${locale}/automation/documents/${task.externalId}`} className="hover:underline">{task.number}</Link>
                     ) : task.number}
                   </td>
                   <td className="px-4 py-3">
@@ -191,6 +213,30 @@ export default function TasksListPage() {
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border/40 text-sm text-foreground/50">
+            <span>{totalCount} · {page} / {totalPages}</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="p-1.5 rounded-md border border-border/60 disabled:opacity-40"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => p + 1)}
+                className="p-1.5 rounded-md border border-border/60 disabled:opacity-40"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

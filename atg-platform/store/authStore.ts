@@ -27,6 +27,10 @@ export interface AuthUser {
   isActive: boolean;
   language: string;
   lastLoginAt?: string;
+  pinpp?: string;
+  passportSeries?: string;
+  passportNumber?: string;
+  requiresProfileSetup?: boolean;
 }
 
 interface AuthState {

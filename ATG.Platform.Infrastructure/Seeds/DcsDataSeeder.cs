@@ -113,7 +113,7 @@ public static class DcsDataSeeder
             TitleRu = "Гарантийное письмо по системе CBM",
             Description = "Guarantee Letter for CBM System",
             Type = DocumentType.Incoming,
-            Status = DocumentStatus.InReview,
+            Status = DocumentStatus.Registered,
             IncomingNumber = "№ NA",
             IncomingDate = new DateTime(2025, 7, 16, 0, 0, 0, DateTimeKind.Utc),
             RegisteredAt = new DateTime(2025, 7, 24, 0, 0, 0, DateTimeKind.Utc),

@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ATG.Platform.Infrastructure.Services;
 
-public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfqChannelService rfqChannels, INotificationService notifications) : IHelpDeskService
+public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfqChannelService rfqChannels, IIncomingLetterService incomingLetters, IOutgoingLetterService outgoingLetters, IMemoService memos, INotificationService notifications) : IHelpDeskService
 {
     public IReadOnlyList<HelpDeskCategoryDto> GetCategories() =>
         HelpDeskRouting.Categories.Select(c => new HelpDeskCategoryDto(
@@ -95,7 +95,7 @@ public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfq
         if (actor is null || !CanView(actor, ticket))
             return Result<TicketDto>.Fail("Access denied");
 
-        return Result<TicketDto>.Ok(MapTicket(ticket, actor));
+        return Result<TicketDto>.Ok(await MapTicketAsync(ticket, actor, ct));
     }
 
     public async Task<Result<TicketDto>> CreateAsync(CreateTicketRequest request, Guid actorId, string? ip, CancellationToken ct = default)
@@ -131,7 +131,9 @@ public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfq
             Status = TicketStatus.Open,
             RequesterId = actorId,
             OrganizationId = actor.OrganizationId,
-            TargetDepartmentId = dept.Id
+            TargetDepartmentId = dept.Id,
+            SourceLanguage = request.SourceLanguage?.Trim().ToLowerInvariant(),
+            TranslatingLanguage = request.TranslatingLanguage?.Trim().ToLowerInvariant(),
         };
 
         db.Tickets.Add(ticket);
@@ -212,6 +214,70 @@ public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfq
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "TicketClosed", "Ticket", ticket.Id, ticket.Number, ip, ct);
         await rfqChannels.NotifyHelpDeskTicketClosedAsync(ticket.Id, ct);
+
+        return await GetByIdAsync(id, actorId, ct);
+    }
+
+    public async Task<Result<TicketDto>> UploadTranslationDocumentAsync(
+        Guid id, UploadTranslationDocumentRequest request, Guid actorId, string? ip, CancellationToken ct = default)
+    {
+        var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (ticket is null) return Result<TicketDto>.Fail("Ticket not found");
+
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null) return Result<TicketDto>.Fail("User not found");
+
+        if (ticket.Category != TicketCategory.Translator || !ticket.LinkedDocumentId.HasValue)
+            return Result<TicketDto>.Fail("This ticket is not a translation request");
+
+        if (!IsDeptStaff(actor, ticket) && !IsPlatformAdmin(actor) && ticket.AssigneeId != actorId)
+            return Result<TicketDto>.Fail("Access denied");
+
+        if (string.IsNullOrWhiteSpace(request.FileName) || string.IsNullOrWhiteSpace(request.StorageKey))
+            return Result<TicketDto>.Fail("File name and storage key are required");
+
+        if (ticket.Status is TicketStatus.Done or TicketStatus.Closed or TicketStatus.Cancelled)
+            return Result<TicketDto>.Fail("Cannot upload translation for a closed ticket");
+
+        var incomingDetail = await db.IncomingLetterDetails
+            .Include(d => d.Document)
+            .FirstOrDefaultAsync(d => d.DocumentId == ticket.LinkedDocumentId.Value, ct);
+        var outgoingDetail = incomingDetail is null
+            ? await db.OutgoingLetterDetails.Include(d => d.Document)
+                .FirstOrDefaultAsync(d => d.DocumentId == ticket.LinkedDocumentId.Value, ct)
+            : null;
+        var memoDetail = incomingDetail is null && outgoingDetail is null
+            ? await db.MemoDetails.Include(d => d.Document)
+                .FirstOrDefaultAsync(d => d.DocumentId == ticket.LinkedDocumentId.Value, ct)
+            : null;
+
+        if (incomingDetail is null && outgoingDetail is null && memoDetail is null)
+            return Result<TicketDto>.Fail("Linked letter not found");
+
+        if (incomingDetail is not null)
+        {
+            incomingDetail.TranslatedAttachmentFileName = request.FileName.Trim();
+            incomingDetail.TranslatedAttachmentStorageKey = request.StorageKey.Trim();
+            incomingDetail.Document.UpdatedAt = DateTime.UtcNow;
+        }
+        else if (outgoingDetail is not null)
+        {
+            outgoingDetail.TranslatedAttachmentFileName = request.FileName.Trim();
+            outgoingDetail.TranslatedAttachmentStorageKey = request.StorageKey.Trim();
+            outgoingDetail.Document.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            memoDetail!.TranslatedAttachmentFileName = request.FileName.Trim();
+            memoDetail.TranslatedAttachmentStorageKey = request.StorageKey.Trim();
+            memoDetail.Document.UpdatedAt = DateTime.UtcNow;
+        }
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        await AddActivityAsync(ticket, actorId, "translation_uploaded", ticket.Status, ticket.Status,
+            request.FileName.Trim(), ct);
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync(actorId, "TranslationUploaded", "Ticket", ticket.Id, request.FileName, ip, ct);
 
         return await GetByIdAsync(id, actorId, ct);
     }
@@ -411,6 +477,28 @@ public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfq
                 return Result<TicketDto>.Fail("Only assignee can perform this action");
         }
 
+        if (toStatus == TicketStatus.Done && ticket.Category == TicketCategory.Translator && ticket.LinkedDocumentId.HasValue)
+        {
+            var incomingKey = await db.IncomingLetterDetails.AsNoTracking()
+                .Where(d => d.DocumentId == ticket.LinkedDocumentId.Value)
+                .Select(d => d.TranslatedAttachmentStorageKey)
+                .FirstOrDefaultAsync(ct);
+            var outgoingKey = incomingKey is null
+                ? await db.OutgoingLetterDetails.AsNoTracking()
+                    .Where(d => d.DocumentId == ticket.LinkedDocumentId.Value)
+                    .Select(d => d.TranslatedAttachmentStorageKey)
+                    .FirstOrDefaultAsync(ct)
+                : null;
+            var memoKey = incomingKey is null && outgoingKey is null
+                ? await db.MemoDetails.AsNoTracking()
+                    .Where(d => d.DocumentId == ticket.LinkedDocumentId.Value)
+                    .Select(d => d.TranslatedAttachmentStorageKey)
+                    .FirstOrDefaultAsync(ct)
+                : null;
+            if (string.IsNullOrWhiteSpace(incomingKey) && string.IsNullOrWhiteSpace(outgoingKey) && string.IsNullOrWhiteSpace(memoKey))
+                return Result<TicketDto>.Fail("Upload translated document before marking done");
+        }
+
         var from = ticket.Status;
         ticket.Status = toStatus;
         ticket.UpdatedAt = DateTime.UtcNow;
@@ -419,6 +507,13 @@ public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfq
         await AddActivityAsync(ticket, actorId, action, from, toStatus, null, ct);
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, $"Ticket{char.ToUpper(action[0])}{action[1..]}", "Ticket", ticket.Id, ticket.Number, ip, ct);
+
+        if (toStatus == TicketStatus.Done && ticket.Category == TicketCategory.Translator && ticket.LinkedDocumentId.HasValue)
+        {
+            await incomingLetters.NotifyHelpDeskTranslationCompletedAsync(ticket.Id, ct);
+            await outgoingLetters.NotifyHelpDeskTranslationCompletedAsync(ticket.Id, ct);
+            await memos.NotifyHelpDeskTranslationCompletedAsync(ticket.Id, ct);
+        }
 
         return await GetByIdAsync(id, actorId, ct);
     }
@@ -498,7 +593,13 @@ public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfq
         t.TargetDepartment.Name, t.TargetDepartment.NameEn,
         t.CreatedAt, t.UpdatedAt);
 
-    private static TicketDto MapTicket(Ticket t, User viewer)
+    private static TicketDto MapTicket(
+        Ticket t,
+        User viewer,
+        string? linkedOriginalFileName,
+        string? linkedOriginalStorageKey,
+        string? linkedTranslatedFileName,
+        string? linkedTranslatedStorageKey)
     {
         var isStaff = IsDeptStaff(viewer, t) || IsPlatformAdmin(viewer);
         var comments = t.Comments
@@ -524,6 +625,63 @@ public class HelpDeskService(AppDbContext db, IAuditService audit, IMarketingRfq
             t.AssignedById, t.AssignedBy?.FullName,
             t.CreatedAt, t.UpdatedAt,
             t.AssignedAt, t.AcceptedAt, t.StartedAt, t.CompletedAt, t.ClosedAt,
+            t.SourceLanguage, TranslationLanguages.Parse(t.TranslatingLanguage), t.LinkedDocumentId,
+            linkedOriginalFileName, linkedOriginalStorageKey,
+            linkedTranslatedFileName, linkedTranslatedStorageKey,
             comments, activities);
+    }
+
+    private async Task<TicketDto> MapTicketAsync(Ticket t, User viewer, CancellationToken ct)
+    {
+        var files = await GetLinkedDocumentFilesAsync(t.LinkedDocumentId, ct);
+        return MapTicket(t, viewer,
+            files?.OriginalFileName, files?.OriginalStorageKey,
+            files?.TranslatedFileName, files?.TranslatedStorageKey);
+    }
+
+    private sealed record LinkedDocumentFiles(
+        string? OriginalFileName,
+        string? OriginalStorageKey,
+        string? TranslatedFileName,
+        string? TranslatedStorageKey);
+
+    private async Task<LinkedDocumentFiles?> GetLinkedDocumentFilesAsync(Guid? documentId, CancellationToken ct)
+    {
+        if (!documentId.HasValue) return null;
+
+        var incoming = await db.IncomingLetterDetails.AsNoTracking()
+            .Include(d => d.Document)
+            .FirstOrDefaultAsync(d => d.DocumentId == documentId.Value, ct);
+        if (incoming is not null)
+        {
+            return new LinkedDocumentFiles(
+                incoming.Document.AttachmentFileName,
+                incoming.Document.ExternalReference,
+                incoming.TranslatedAttachmentFileName,
+                incoming.TranslatedAttachmentStorageKey);
+        }
+
+        var outgoing = await db.OutgoingLetterDetails.AsNoTracking()
+            .Include(d => d.Document)
+            .FirstOrDefaultAsync(d => d.DocumentId == documentId.Value, ct);
+        if (outgoing is not null)
+        {
+            return new LinkedDocumentFiles(
+                outgoing.Document.AttachmentFileName,
+                outgoing.Document.ExternalReference,
+                outgoing.TranslatedAttachmentFileName,
+                outgoing.TranslatedAttachmentStorageKey);
+        }
+
+        var memo = await db.MemoDetails.AsNoTracking()
+            .Include(d => d.Document)
+            .FirstOrDefaultAsync(d => d.DocumentId == documentId.Value, ct);
+        if (memo is null) return null;
+
+        return new LinkedDocumentFiles(
+            memo.Document.AttachmentFileName,
+            memo.Document.ExternalReference,
+            memo.TranslatedAttachmentFileName,
+            memo.TranslatedAttachmentStorageKey);
     }
 }

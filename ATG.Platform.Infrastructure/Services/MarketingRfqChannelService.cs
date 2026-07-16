@@ -34,7 +34,7 @@ public class MarketingRfqChannelService(AppDbContext db) : IMarketingRfqChannelS
         await CompleteChannelAsync(channel, ct);
     }
 
-    public async Task<(bool Ok, string? Error)> ValidateStep4CompletionAsync(Guid documentId, CancellationToken ct = default)
+    public async Task<(bool Ok, string? Error)> ValidateStep3RfqCompletionAsync(Guid documentId, CancellationToken ct = default)
     {
         var record = await db.MarketingRecords.AsNoTracking()
             .Include(r => r.RfqChannelRequests)
@@ -43,21 +43,38 @@ public class MarketingRfqChannelService(AppDbContext db) : IMarketingRfqChannelS
             return (false, "Marketing record not found");
 
         if (string.IsNullOrWhiteSpace(record.RfqDocumentStorageKey))
-            return (false, "Upload the RFQ document before completing step 4");
+            return (false, "Upload the RFQ document before completing step 3");
 
         if (!record.RfqChannelRequests.Any())
             return (false, "Open at least one channel: ATG Website or Tenderweek");
 
         if (record.RfqChannelRequests.Any(c => c.Status == MarketingRfqChannelStatus.Open))
-            return (false, "All ATG Website and Tender requests must be closed before completing step 4");
+            return (false, "All ATG Website and Tenderweek requests must be closed before completing step 3");
 
         return (true, null);
+    }
+
+    public async Task CompleteTenderChannelByEngineerAsync(Guid documentId, Guid actorId, CancellationToken ct = default)
+    {
+        var channel = await db.MarketingRfqChannelRequests
+            .Include(c => c.Record).ThenInclude(r => r.Request)
+            .FirstOrDefaultAsync(c =>
+                c.DocumentId == documentId
+                && c.Channel == MarketingRfqChannelType.Tenderweek
+                && c.Status == MarketingRfqChannelStatus.Open, ct)
+            ?? throw new InvalidOperationException("No open Tenderweek channel found");
+
+        if (channel.Record.Request?.MarketingSpecialistId != actorId
+            && channel.CreatedById != actorId)
+            throw new InvalidOperationException("Only the assigned marketing engineer can complete Tenderweek publication");
+
+        await CompleteChannelAsync(channel, ct);
     }
 
     public async Task<MarketingRfqChannelRequest> CreateAtgWebsiteChannelAsync(
         MarketingRecord record, User actor, CancellationToken ct)
     {
-        EnsureStep4(record);
+        EnsureStep3(record);
         EnsureRfqDocument(record);
 
         if (record.RfqChannelRequests.Any(c =>
@@ -117,33 +134,14 @@ public class MarketingRfqChannelService(AppDbContext db) : IMarketingRfqChannelS
     public async Task<MarketingRfqChannelRequest> CreateTenderChannelAsync(
         MarketingRecord record, User actor, CancellationToken ct)
     {
-        EnsureStep4(record);
+        EnsureStep3(record);
         EnsureRfqDocument(record);
 
         if (record.RfqChannelRequests.Any(c =>
                 c.Channel == MarketingRfqChannelType.Tenderweek && c.Status == MarketingRfqChannelStatus.Open))
-            throw new InvalidOperationException("Tenderweek request is already open");
-
-        var assignee = await ResolveTenderOfficerAsync(ct)
-            ?? throw new InvalidOperationException("Tender officer not found");
+            throw new InvalidOperationException("Tenderweek channel is already open");
 
         var docNumber = record.Request?.Document?.Number ?? record.DocumentId.ToString();
-        var task = new WorkTask
-        {
-            Id = Guid.NewGuid(),
-            Number = await GenerateTaskNumberAsync(ct),
-            Title = $"Tenderweek RFQ — {docNumber}",
-            Description = BuildTenderDescription(record, docNumber),
-            Status = WorkTaskStatus.New,
-            Priority = record.Request?.Priority ?? TaskPriority.Medium,
-            Source = TaskSource.DCS,
-            ExternalId = record.DocumentId,
-            AssigneeId = assignee.Id,
-            CreatedById = actor.Id,
-            OrganizationId = assignee.OrganizationId,
-            DepartmentId = assignee.DepartmentId!.Value,
-        };
-        db.WorkTasks.Add(task);
 
         var channel = new MarketingRfqChannelRequest
         {
@@ -152,9 +150,8 @@ public class MarketingRfqChannelService(AppDbContext db) : IMarketingRfqChannelS
             DocumentId = record.DocumentId,
             Channel = MarketingRfqChannelType.Tenderweek,
             Status = MarketingRfqChannelStatus.Open,
-            WorkTaskId = task.Id,
-            AssignedUserId = assignee.Id,
-            ExternalNumber = task.Number,
+            AssignedUserId = actor.Id,
+            ExternalNumber = $"TW-{docNumber}",
             CreatedById = actor.Id,
         };
         db.MarketingRfqChannelRequests.Add(channel);
@@ -198,10 +195,10 @@ public class MarketingRfqChannelService(AppDbContext db) : IMarketingRfqChannelS
         await db.SaveChangesAsync(ct);
     }
 
-    private static void EnsureStep4(MarketingRecord record)
+    private static void EnsureStep3(MarketingRecord record)
     {
-        if (record.Request?.MarketingCurrentStep != 4)
-            throw new InvalidOperationException("RFQ channel requests are only available at marketing step 4");
+        if (record.Request?.MarketingCurrentStep != 3)
+            throw new InvalidOperationException("RFQ channel requests are only available at marketing step 3");
     }
 
     private static void EnsureRfqDocument(MarketingRecord record)

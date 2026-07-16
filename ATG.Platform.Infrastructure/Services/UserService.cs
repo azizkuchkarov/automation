@@ -81,7 +81,8 @@ public class UserService(AppDbContext db, IAuditService audit) : IUserService
             DepartmentId = request.DepartmentId,
             PositionId = request.PositionId,
             Role = request.Role,
-            Language = request.Language
+            Language = request.Language,
+            Pinpp = string.IsNullOrWhiteSpace(request.Pinpp) ? null : request.Pinpp.Trim(),
         };
 
         db.Users.Add(user);
@@ -113,6 +114,7 @@ public class UserService(AppDbContext db, IAuditService audit) : IUserService
         user.PositionId = request.PositionId;
         user.Role = request.Role;
         user.Language = request.Language;
+        user.Pinpp = string.IsNullOrWhiteSpace(request.Pinpp) ? null : request.Pinpp.Trim();
         user.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(ct);
@@ -244,6 +246,51 @@ public class UserService(AppDbContext db, IAuditService audit) : IUserService
             .Max();
 
         return Result<string>.Ok($"ATG-{(max + 1):D3}");
+    }
+
+    public async Task<Result<UserDto>> SetMyPinppAsync(Guid userId, string pinpp, string? ipAddress, CancellationToken ct = default)
+    {
+        var pinppError = UserProfileValidator.ValidatePinpp(pinpp);
+        if (pinppError is not null) return Result<UserDto>.Fail(pinppError);
+
+        var normalized = pinpp.Trim();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null) return Result<UserDto>.Fail("User not found");
+
+        user.Pinpp = normalized;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync(userId, "USER_PINPP_SET", "User", user.Id, null, ipAddress, ct);
+
+        return await GetUserByIdAsync(userId, ct);
+    }
+
+    public async Task<Result<UserDto>> CompleteMyProfileAsync(
+        Guid userId, CompleteMyProfileRequest request, string? ipAddress, CancellationToken ct = default)
+    {
+        var pinppError = UserProfileValidator.ValidatePinpp(request.Pinpp);
+        if (pinppError is not null) return Result<UserDto>.Fail(pinppError);
+
+        var passportError = UserProfileValidator.ValidatePassport(request.PassportSeries, request.PassportNumber);
+        if (passportError is not null) return Result<UserDto>.Fail(passportError);
+
+        var (pinpp, passportSeries, passportNumber) = UserProfileValidator.Normalize(
+            request.Pinpp, request.PassportSeries, request.PassportNumber);
+
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null) return Result<UserDto>.Fail("User not found");
+
+        user.Pinpp = pinpp;
+        user.PassportSeries = passportSeries;
+        user.PassportNumber = passportNumber;
+        if (!string.IsNullOrWhiteSpace(request.Phone))
+            user.Phone = request.Phone.Trim();
+        user.ProfileCompletedAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync(userId, "USER_PROFILE_COMPLETED", "User", user.Id, null, ipAddress, ct);
+
+        return await GetUserByIdAsync(userId, ct);
     }
 
     private IQueryable<User> GetUserQuery() => db.Users

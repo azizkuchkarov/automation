@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ATG.Platform.Infrastructure.Services;
 
-public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfqChannelService rfqChannels) : IMarketingService
+public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfqChannelService rfqChannels, IFileStorageService files) : IMarketingService
 {
     private const string HoMkt = "HO-MKT";
 
@@ -17,7 +17,7 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
     {
         var existing = await LoadRecordAsync(documentId, ct);
         if (existing is not null)
-            return Result<MarketingRecordDto>.Ok(MapRecord(existing));
+            return Result<MarketingRecordDto>.Ok(await MapRecordAsync(existing, ct));
 
         var detail = await db.ProcurementRequestDetails
             .Include(d => d.Document)
@@ -51,7 +51,7 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         };
 
         db.MarketingRecords.Add(record);
-        return Result<MarketingRecordDto>.Ok(MapRecord(record));
+        return Result<MarketingRecordDto>.Ok(await MapRecordAsync(record, ct));
     }
 
     public async Task<Result<MarketingRecordDto>> GetByDocumentIdAsync(
@@ -66,19 +66,42 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
                 return Result<MarketingRecordDto>.Fail("Access denied");
         }
 
-        return Result<MarketingRecordDto>.Ok(MapRecord(record));
+        return Result<MarketingRecordDto>.Ok(await MapRecordAsync(record, ct));
     }
 
-    public async Task<Result<IReadOnlyList<MarketingRecordListItemDto>>> GetRecordsAsync(
-        Guid actorId, MarketingRecordStatus? status, Guid? executorId, MarketingRequestCategory? category, CancellationToken ct = default)
+    public async Task<Result<PagedResult<MarketingRecordListItemDto>>> GetRecordsAsync(
+        Guid actorId, MarketingRecordStatus? status, Guid? executorId, MarketingRequestCategory? category,
+        int page, int pageSize, CancellationToken ct = default)
     {
         var actor = await GetActorAsync(actorId, ct);
         if (actor is null || !IsMarketingStaff(actor))
-            return Result<IReadOnlyList<MarketingRecordListItemDto>>.Fail("Access denied");
+            return Result<PagedResult<MarketingRecordListItemDto>>.Fail("Access denied");
 
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = BuildMarketingRecordsQuery(actor, status, executorId, category);
+        var total = await query.CountAsync(ct);
+        var rows = await query
+            .OrderByDescending(r => r.UpdatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(r => new { Record = r, OfferCount = r.Offers.Count })
+            .ToListAsync(ct);
+
+        var items = rows.Select(x => MapListItem(x.Record, x.OfferCount)).ToList();
+        return Result<PagedResult<MarketingRecordListItemDto>>.Ok(
+            new PagedResult<MarketingRecordListItemDto>(items, total, page, pageSize));
+    }
+
+    private IQueryable<MarketingRecord> BuildMarketingRecordsQuery(
+        User actor,
+        MarketingRecordStatus? status,
+        Guid? executorId,
+        MarketingRequestCategory? category)
+    {
         var query = db.MarketingRecords.AsNoTracking()
             .Include(r => r.MarketingExecutor)
-            .Include(r => r.Offers)
             .Where(r => r.Status != MarketingRecordStatus.Cancelled);
 
         if (!IsMarketingManager(actor))
@@ -87,9 +110,7 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         if (status is not null) query = query.Where(r => r.Status == status);
         if (executorId is not null) query = query.Where(r => r.MarketingExecutorId == executorId);
         if (category is not null) query = query.Where(r => r.RequestCategory == category);
-
-        var items = await query.OrderByDescending(r => r.UpdatedAt).ToListAsync(ct);
-        return Result<IReadOnlyList<MarketingRecordListItemDto>>.Ok(items.Select(MapListItem).ToList());
+        return query;
     }
 
     public async Task<Result<MarketingRecordDto>> SetCategoryAsync(
@@ -211,8 +232,8 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         var record = await LoadRecordTrackedAsync(documentId, ct);
         if (record is null) return Result<MarketingRecordDto>.Fail("Marketing record not found");
         if (!await CanWorkRecord(actorId, record, ct)) return Result<MarketingRecordDto>.Fail("Access denied");
-        if (record.Request.MarketingCurrentStep != 4)
-            return Result<MarketingRecordDto>.Fail("RFQ document can only be uploaded at marketing step 4");
+        if (record.Request.MarketingCurrentStep != 3)
+            return Result<MarketingRecordDto>.Fail("RFQ document can only be uploaded at marketing step 3");
         if (string.IsNullOrWhiteSpace(request.StorageKey) || string.IsNullOrWhiteSpace(request.FileName))
             return Result<MarketingRecordDto>.Fail("RFQ file is required");
 
@@ -221,6 +242,185 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         record.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         return await GetByDocumentIdAsync(documentId, actorId, ct);
+    }
+
+    public async Task<Result<MarketingRecordDto>> RegisterAndGenerateRfqAsync(
+        Guid documentId, RegisterRfqStep3Request request, Guid actorId, CancellationToken ct = default)
+    {
+        var record = await LoadRecordTrackedAsync(documentId, ct);
+        if (record is null) return Result<MarketingRecordDto>.Fail("Marketing record not found");
+        if (!await CanWorkRecord(actorId, record, ct)) return Result<MarketingRecordDto>.Fail("Access denied");
+        if (record.Request.MarketingCurrentStep != 3)
+            return Result<MarketingRecordDto>.Fail("RFQ registration is only available at marketing step 3");
+        if (request.CommercialProposalDeadline == default)
+            return Result<MarketingRecordDto>.Fail("Commercial proposal deadline is required");
+
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null) return Result<MarketingRecordDto>.Fail("User not found");
+
+        var detail = record.Request;
+        var requisitionType = detail.TasRequisitionType ?? TasRequisitionType.MaterialRequest;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
+        if (!MarketingRegistrationNumberGenerator.IsCurrentRfqNumber(record.PortalNumber))
+        {
+            record.PortalNumber = await MarketingRegistrationNumberGenerator.GenerateNextAsync(db, ct);
+            record.RegisteredDate = today;
+        }
+
+        record.RfqCommercialProposalDeadline = request.CommercialProposalDeadline;
+
+        var fill = new RfqDocumentFillRequest(
+            requisitionType,
+            record.PortalNumber,
+            today,
+            request.CommercialProposalDeadline,
+            detail.Document.TitleRu ?? detail.Document.Title ?? "",
+            detail.Document.Title,
+            actor.Email,
+            actor.FullName);
+
+        var bytes = RfqWordDocumentGenerator.Generate(fill);
+        await using var stream = new MemoryStream(bytes);
+        var fileName = $"{record.PortalNumber}.docx";
+        var storageKey = await files.UploadAsync("marketing/rfq", fileName, stream, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ct);
+
+        record.RfqDocumentStorageKey = storageKey;
+        record.RfqDocumentFileName = fileName;
+        record.RfqPreparedAt = DateTime.UtcNow;
+        record.Status = MarketingRecordStatus.RfqPreparation;
+        record.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        if (!record.RfqChannelRequests.Any(c =>
+                c.Channel == MarketingRfqChannelType.AtgWebsite && c.Status == MarketingRfqChannelStatus.Open))
+        {
+            await rfqChannels.CreateAtgWebsiteChannelAsync(record, actor, ct);
+        }
+
+        if (!record.RfqChannelRequests.Any(c =>
+                c.Channel == MarketingRfqChannelType.Tenderweek && c.Status == MarketingRfqChannelStatus.Open))
+        {
+            await rfqChannels.CreateTenderChannelAsync(record, actor, ct);
+        }
+
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync(actorId, "MarketingRfqRegistered", "Document", documentId, record.PortalNumber, null, ct);
+        return await GetByDocumentIdAsync(documentId, actorId, ct);
+    }
+
+    public async Task<Result<MarketingRecordDto>> RegisterAndGeneratePlanAsync(
+        Guid documentId, RegisterMarketingPlanRequest request, Guid actorId, CancellationToken ct = default)
+    {
+        var record = await LoadRecordTrackedAsync(documentId, ct);
+        if (record is null) return Result<MarketingRecordDto>.Fail("Marketing record not found");
+        if (!await CanWorkRecord(actorId, record, ct)) return Result<MarketingRecordDto>.Fail("Access denied");
+        if (record.Request.MarketingCurrentStep != 6)
+            return Result<MarketingRecordDto>.Fail("Plan registration is only available at marketing step 6");
+
+        var plan = record.Plans.OrderByDescending(p => p.Version).FirstOrDefault();
+        if (plan is null || plan.Status != MarketingPlanStatus.Draft)
+        {
+            var version = record.Plans.Count == 0 ? 1 : record.Plans.Max(p => p.Version) + 1;
+            plan = new MarketingProcurementPlan
+            {
+                Id = Guid.NewGuid(),
+                MarketingRecordId = record.Id,
+                Version = version,
+                Status = MarketingPlanStatus.Draft,
+            };
+            db.MarketingProcurementPlans.Add(plan);
+            record.Plans.Add(plan);
+        }
+
+        var procurementMethod = MarketingPlanRegistrationNumberGenerator.ToProcurementMethod(request.RegistrationMethod);
+        var methodChanged = plan.RegistrationMethod != request.RegistrationMethod;
+
+        plan.RegistrationMethod = request.RegistrationMethod;
+        plan.ProcurementMethod = procurementMethod;
+        plan.UpdatedAt = DateTime.UtcNow;
+
+        if (methodChanged || string.IsNullOrWhiteSpace(plan.RegistrationNumber))
+        {
+            plan.RegistrationNumber = await MarketingPlanRegistrationNumberGenerator.GenerateNextAsync(
+                db, request.RegistrationMethod, ct);
+            plan.RegisteredAt = DateTime.UtcNow;
+            plan.AttachmentKey = null;
+        }
+
+        record.ProcurementMethod = procurementMethod;
+        record.StrategyNumber = plan.RegistrationNumber;
+        record.PlanPreparedAt = DateTime.UtcNow;
+        record.Status = MarketingRecordStatus.PlanPreparation;
+        record.UpdatedAt = DateTime.UtcNow;
+
+        if (PlanWordDocumentGenerator.HasTemplate(request.RegistrationMethod))
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+            var fill = new PlanDocumentFillRequest(request.RegistrationMethod, plan.RegistrationNumber, today);
+            var bytes = PlanWordDocumentGenerator.Generate(fill);
+            await using var stream = new MemoryStream(bytes);
+            var fileName = $"{plan.RegistrationNumber}.docx";
+            var storageKey = await files.UploadAsync(
+                "marketing/plan", fileName, stream,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ct);
+            plan.TemplateStorageKey = storageKey;
+            plan.TemplateFileName = fileName;
+        }
+        else
+        {
+            plan.TemplateStorageKey = null;
+            plan.TemplateFileName = null;
+        }
+
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync(actorId, "MarketingPlanRegistered", "Document", documentId, plan.RegistrationNumber, null, ct);
+        return await GetByDocumentIdAsync(documentId, actorId, ct);
+    }
+
+    public async Task<Result<MarketingRecordDto>> UploadPlanDocumentAsync(
+        Guid documentId, UploadMarketingPlanDocumentRequest request, Guid actorId, CancellationToken ct = default)
+    {
+        var record = await LoadRecordTrackedAsync(documentId, ct);
+        if (record is null) return Result<MarketingRecordDto>.Fail("Marketing record not found");
+        if (!await CanWorkRecord(actorId, record, ct)) return Result<MarketingRecordDto>.Fail("Access denied");
+        if (record.Request.MarketingCurrentStep != 6)
+            return Result<MarketingRecordDto>.Fail("Plan document upload is only available at marketing step 6");
+
+        var plan = record.Plans.OrderByDescending(p => p.Version).FirstOrDefault();
+        if (plan is null || string.IsNullOrWhiteSpace(plan.RegistrationNumber))
+            return Result<MarketingRecordDto>.Fail("Register the procurement plan first");
+
+        plan.AttachmentKey = request.StorageKey.Trim();
+        plan.UpdatedAt = DateTime.UtcNow;
+        record.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return await GetByDocumentIdAsync(documentId, actorId, ct);
+    }
+
+    public async Task<Result<(byte[] Bytes, string FileName)>> DownloadPlanTemplateAsync(
+        Guid documentId, Guid actorId, CancellationToken ct = default)
+    {
+        var record = await LoadRecordAsync(documentId, ct);
+        if (record is null) return Result<(byte[], string)>.Fail("Marketing record not found");
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null || !CanView(actor, record))
+            return Result<(byte[], string)>.Fail("Access denied");
+
+        var plan = record.Plans.OrderByDescending(p => p.Version).FirstOrDefault();
+        if (plan?.RegistrationMethod is null || string.IsNullOrWhiteSpace(plan.RegistrationNumber))
+            return Result<(byte[], string)>.Fail("Register the procurement plan first");
+        if (!PlanWordDocumentGenerator.HasTemplate(plan.RegistrationMethod.Value))
+            return Result<(byte[], string)>.Fail("This procurement method has no Word template");
+
+        var fill = new PlanDocumentFillRequest(
+            plan.RegistrationMethod.Value,
+            plan.RegistrationNumber,
+            DateOnly.FromDateTime(plan.RegisteredAt?.Date ?? DateTime.UtcNow.Date));
+
+        var bytes = PlanWordDocumentGenerator.Generate(fill);
+        var fileName = plan.TemplateFileName ?? $"{plan.RegistrationNumber}.docx";
+        return Result<(byte[], string)>.Ok((bytes, fileName));
     }
 
     public async Task<Result<MarketingRecordDto>> OpenRfqAtgWebsiteChannelAsync(
@@ -268,6 +468,26 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
 
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "MarketingRfqTenderOpened", "Document", documentId, null, null, ct);
+        return await GetByDocumentIdAsync(documentId, actorId, ct);
+    }
+
+    public async Task<Result<MarketingRecordDto>> CompleteRfqTenderChannelAsync(
+        Guid documentId, Guid actorId, CancellationToken ct = default)
+    {
+        var record = await LoadRecordTrackedAsync(documentId, ct);
+        if (record is null) return Result<MarketingRecordDto>.Fail("Marketing record not found");
+        if (!await CanWorkRecord(actorId, record, ct)) return Result<MarketingRecordDto>.Fail("Access denied");
+
+        try
+        {
+            await rfqChannels.CompleteTenderChannelByEngineerAsync(documentId, actorId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result<MarketingRecordDto>.Fail(ex.Message);
+        }
+
+        await audit.LogAsync(actorId, "MarketingRfqTenderCompleted", "Document", documentId, null, null, ct);
         return await GetByDocumentIdAsync(documentId, actorId, ct);
     }
 
@@ -324,6 +544,12 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         if (record is null) return Result<MarketingOfferDto>.Fail("Marketing record not found");
         if (!await CanWorkRecord(actorId, record, ct)) return Result<MarketingOfferDto>.Fail("Access denied");
 
+        if (record.Request.MarketingCurrentStep != 4)
+            return Result<MarketingOfferDto>.Fail("Commercial proposals can only be added at marketing step 4");
+
+        if (string.IsNullOrWhiteSpace(request.CompanyName))
+            return Result<MarketingOfferDto>.Fail("Company name is required");
+
         var offer = new MarketingOffer
         {
             Id = Guid.NewGuid(),
@@ -339,6 +565,8 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
             ContactInfo = request.ContactInfo,
             Source = request.Source,
             AttachmentKey = request.AttachmentKey,
+            InitiatorReviewStatus = MarketingInitiatorReviewStatus.Pending,
+            EngineerReviewStatus = MarketingInitiatorReviewStatus.Pending,
         };
         db.MarketingOffers.Add(offer);
         record.Offers.Add(offer);
@@ -346,6 +574,115 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         record.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
         return Result<MarketingOfferDto>.Ok(MapOffer(offer));
+    }
+
+    public async Task<Result<MarketingOfferDto>> ReviewOfferByInitiatorAsync(
+        Guid offerId, ReviewMarketingOfferRequest request, Guid actorId, CancellationToken ct = default)
+    {
+        var offer = await db.MarketingOffers
+            .Include(o => o.Record).ThenInclude(r => r.Request)
+            .FirstOrDefaultAsync(o => o.Id == offerId, ct);
+        if (offer is null) return Result<MarketingOfferDto>.Fail("Offer not found");
+
+        var detail = offer.Record.Request;
+        if (detail is null || detail.Phase != ProcurementRequestPhase.Marketing || detail.MarketingCurrentStep != 4)
+            return Result<MarketingOfferDto>.Fail("TAS review is only available at marketing step 4");
+
+        if (!await CanReviewProposalAsTasAsync(detail, actorId, ct))
+            return Result<MarketingOfferDto>.Fail("Only the TAS responsible can review proposals");
+
+        var action = request.Action?.Trim().ToLowerInvariant();
+        if (action is not ("approve" or "reject"))
+            return Result<MarketingOfferDto>.Fail("Action must be Approve or Reject");
+        if (action == "reject" && string.IsNullOrWhiteSpace(request.Comment))
+            return Result<MarketingOfferDto>.Fail("Rejection comment is required");
+
+        offer.InitiatorReviewStatus = action == "approve"
+            ? MarketingInitiatorReviewStatus.Approved
+            : MarketingInitiatorReviewStatus.Rejected;
+        offer.InitiatorReviewedById = actorId;
+        offer.InitiatorReviewedAt = DateTime.UtcNow;
+        offer.InitiatorReviewComment = request.Comment?.Trim();
+        offer.MeetsTzRequirements = action == "approve";
+        offer.RejectionReason = action == "reject" ? request.Comment?.Trim() : null;
+        offer.Record.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        var reviewer = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == actorId, ct);
+        return Result<MarketingOfferDto>.Ok(MapOffer(offer, initiatorReviewerName: reviewer?.FullName));
+    }
+
+    public async Task<Result<MarketingOfferDto>> ReviewOfferByEngineerAsync(
+        Guid offerId, ReviewMarketingOfferRequest request, Guid actorId, CancellationToken ct = default)
+    {
+        var offer = await db.MarketingOffers
+            .Include(o => o.Record).ThenInclude(r => r.Request).ThenInclude(req => req!.Document)
+            .FirstOrDefaultAsync(o => o.Id == offerId, ct);
+        if (offer is null) return Result<MarketingOfferDto>.Fail("Offer not found");
+
+        var detail = offer.Record.Request;
+        if (detail is null || detail.Phase != ProcurementRequestPhase.Marketing || detail.MarketingCurrentStep != 4)
+            return Result<MarketingOfferDto>.Fail("Marketing engineer review is only available at marketing step 4");
+        if (!await IsMarketingEngineerForRecordAsync(actorId, offer.Record, ct))
+            return Result<MarketingOfferDto>.Fail("Only the assigned marketing engineer can review proposals");
+
+        var action = request.Action?.Trim().ToLowerInvariant();
+        if (action is not ("approve" or "reject"))
+            return Result<MarketingOfferDto>.Fail("Action must be Approve or Reject");
+        if (action == "reject" && string.IsNullOrWhiteSpace(request.Comment))
+            return Result<MarketingOfferDto>.Fail("Rejection comment is required");
+
+        offer.EngineerReviewStatus = action == "approve"
+            ? MarketingInitiatorReviewStatus.Approved
+            : MarketingInitiatorReviewStatus.Rejected;
+        offer.EngineerReviewedById = actorId;
+        offer.EngineerReviewedAt = DateTime.UtcNow;
+        offer.EngineerReviewComment = request.Comment?.Trim();
+        offer.Record.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        var reviewer = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == actorId, ct);
+        return Result<MarketingOfferDto>.Ok(MapOffer(offer, engineerReviewerName: reviewer?.FullName));
+    }
+
+    public async Task<(bool Ok, string? Error)> ValidateStep4ProposalsAsync(Guid documentId, CancellationToken ct = default)
+    {
+        var record = await db.MarketingRecords.AsNoTracking()
+            .Include(r => r.Offers)
+            .FirstOrDefaultAsync(r => r.DocumentId == documentId, ct);
+        if (record is null) return (false, "Marketing record not found");
+        if (record.Offers.Count == 0)
+            return (false, "Add at least one commercial proposal before completing step 4");
+        if (record.Offers.Any(o => o.EngineerReviewStatus == MarketingInitiatorReviewStatus.Pending))
+            return (false, "Marketing engineer must approve or reject every commercial proposal");
+        if (record.Offers.Any(o => o.InitiatorReviewStatus == MarketingInitiatorReviewStatus.Pending))
+            return (false, "TAS responsible must approve or reject every commercial proposal");
+        if (!record.Offers.Any(o =>
+                o.EngineerReviewStatus == MarketingInitiatorReviewStatus.Approved
+                && o.InitiatorReviewStatus == MarketingInitiatorReviewStatus.Approved))
+            return (false, "At least one commercial proposal must be approved by both marketing engineer and TAS responsible");
+
+        return (true, null);
+    }
+
+    public async Task<(bool Ok, string? Error)> ValidateStep6PlanAsync(Guid documentId, CancellationToken ct = default)
+    {
+        var record = await db.MarketingRecords.AsNoTracking()
+            .Include(r => r.Plans)
+            .FirstOrDefaultAsync(r => r.DocumentId == documentId, ct);
+        if (record is null) return (false, "Marketing record not found");
+
+        var plan = record.Plans.OrderByDescending(p => p.Version).FirstOrDefault();
+        if (plan is null || plan.RegistrationMethod is null)
+            return (false, "Select a procurement method and register the plan");
+        if (string.IsNullOrWhiteSpace(plan.RegistrationNumber))
+            return (false, "Procurement plan registration number is required");
+
+        if (PlanWordDocumentGenerator.HasTemplate(plan.RegistrationMethod.Value)
+            && string.IsNullOrWhiteSpace(plan.AttachmentKey))
+            return (false, "Upload the completed procurement plan document");
+
+        return (true, null);
     }
 
     public async Task<Result<MarketingOfferDto>> UpdateOfferComplianceAsync(
@@ -554,34 +891,62 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         if (actor is null || !IsMarketingStaff(actor))
             return Result<MarketingStatsDto>.Fail("Access denied");
 
-        var records = await db.MarketingRecords.AsNoTracking()
-            .Include(r => r.MarketingExecutor)
-            .Where(r => r.Status != MarketingRecordStatus.Cancelled)
-            .ToListAsync(ct);
+        var baseQuery = db.MarketingRecords.AsNoTracking()
+            .Where(r => r.Status != MarketingRecordStatus.Cancelled);
+
+        if (!IsMarketingManager(actor))
+            baseQuery = baseQuery.Where(r => r.MarketingExecutorId == actor.Id || r.AssignedByManagerId == actor.Id);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var overdue = records.Count(r => r.DeadlineDate is not null && r.DeadlineDate < today
-            && r.Status != MarketingRecordStatus.CompletedToContract);
-        var completed = records.Count(r => r.Status == MarketingRecordStatus.CompletedToContract);
-        var inProgress = records.Count - completed;
+        var total = await baseQuery.CountAsync(ct);
+        var completed = await baseQuery.CountAsync(r => r.Status == MarketingRecordStatus.CompletedToContract, ct);
+        var overdue = await baseQuery.CountAsync(r =>
+            r.DeadlineDate != null && r.DeadlineDate < today
+            && r.Status != MarketingRecordStatus.CompletedToContract, ct);
+        var inProgress = total - completed;
+
+        var byCategory = await baseQuery
+            .Where(r => r.RequestCategory != null)
+            .GroupBy(r => r.RequestCategory!.Value)
+            .Select(g => new MarketingCategoryStatDto(g.Key, g.Count()))
+            .ToListAsync(ct);
+
+        var byExecutorRows = await baseQuery
+            .Where(r => r.MarketingExecutorId != null)
+            .GroupBy(r => r.MarketingExecutorId!.Value)
+            .Select(g => new
+            {
+                ExecutorId = g.Key,
+                Count = g.Count(),
+                Overdue = g.Count(r => r.DeadlineDate != null && r.DeadlineDate < today
+                    && r.Status != MarketingRecordStatus.CompletedToContract),
+            })
+            .ToListAsync(ct);
+
+        var executorIds = byExecutorRows.Select(x => x.ExecutorId).ToList();
+        var executorNames = executorIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await db.Users.AsNoTracking()
+                .Where(u => executorIds.Contains(u.Id))
+                .ToListAsync(ct))
+                .ToDictionary(u => u.Id, u => u.FullName);
+
+        var byExecutor = byExecutorRows
+            .Select(x => new MarketingExecutorStatDto(
+                executorNames.GetValueOrDefault(x.ExecutorId, "—"),
+                x.Count,
+                x.Overdue))
+            .OrderBy(x => x.ExecutorName)
+            .ToList();
+
+        var byMethod = await baseQuery
+            .Where(r => r.ProcurementMethod != null)
+            .GroupBy(r => r.ProcurementMethod!.Value)
+            .Select(g => new MarketingMethodStatDto(g.Key, g.Count()))
+            .ToListAsync(ct);
 
         return Result<MarketingStatsDto>.Ok(new MarketingStatsDto(
-            records.Count,
-            inProgress,
-            overdue,
-            completed,
-            records.Where(r => r.RequestCategory is not null)
-                .GroupBy(r => r.RequestCategory!.Value)
-                .Select(g => new MarketingCategoryStatDto(g.Key, g.Count())).ToList(),
-            records.Where(r => r.MarketingExecutor is not null)
-                .GroupBy(r => r.MarketingExecutor!.FullName)
-                .Select(g => new MarketingExecutorStatDto(g.Key, g.Count(),
-                    g.Count(r => r.DeadlineDate < today && r.Status != MarketingRecordStatus.CompletedToContract)))
-                .ToList(),
-            records.Where(r => r.ProcurementMethod is not null)
-                .GroupBy(r => r.ProcurementMethod!.Value)
-                .Select(g => new MarketingMethodStatDto(g.Key, g.Count()))
-                .ToList()));
+            total, inProgress, overdue, completed, byCategory, byExecutor, byMethod));
     }
 
     public async Task<Result<IReadOnlyList<MarketingLeadershipRowDto>>> GetLeadershipOverviewAsync(Guid actorId, CancellationToken ct = default)
@@ -665,20 +1030,27 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
 
     public async Task<Result<IReadOnlyList<MarketingBoardColumnDto>>> GetBoardAsync(Guid actorId, CancellationToken ct = default)
     {
-        var list = await GetRecordsAsync(actorId, null, null, null, ct);
-        if (!list.IsSuccess) return Result<IReadOnlyList<MarketingBoardColumnDto>>.Fail(list.Error!);
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null || !IsMarketingStaff(actor))
+            return Result<IReadOnlyList<MarketingBoardColumnDto>>.Fail("Access denied");
+
+        var rows = await BuildMarketingRecordsQuery(actor, null, null, null)
+            .OrderByDescending(r => r.UpdatedAt)
+            .Select(r => new { Record = r, OfferCount = r.Offers.Count })
+            .ToListAsync(ct);
+
+        var items = rows.Select(x => MapListItem(x.Record, x.OfferCount)).ToList();
 
         var columns = new[]
         {
-            (MarketingRecordStatus.WaitingAccept, "Executor kutilmoqda", "Awaiting executor"),
-            (MarketingRecordStatus.RfqSent, "RFQ jarayoni", "RFQ process"),
-            (MarketingRecordStatus.KpAnalysis, "KP tahlil", "KP analysis"),
-            (MarketingRecordStatus.PlanPreparation, "Reja", "Plan"),
-            (MarketingRecordStatus.PlanPortalApproval, "Portal", "Portal"),
-            (MarketingRecordStatus.CompletedToContract, "Tugallandi", "Completed"),
+            (MarketingRecordStatus.WaitingAccept, "Ожидание исполнителя", "Awaiting executor"),
+            (MarketingRecordStatus.RfqSent, "RFQ / запрос цен", "RFQ & price request"),
+            (MarketingRecordStatus.KpAnalysis, "Анализ КП", "Commercial offer analysis"),
+            (MarketingRecordStatus.PlanPreparation, "План закупки", "Procurement plan"),
+            (MarketingRecordStatus.PlanPortalApproval, "Согласование на портале", "Portal approval"),
+            (MarketingRecordStatus.CompletedToContract, "Передано в контракты", "Handed to contracts"),
         };
 
-        var items = list.Data!;
         var result = columns.Select(c => new MarketingBoardColumnDto(
             c.Item1,
             c.Item2,
@@ -710,12 +1082,12 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
             1 when detail.MarketingSpecialistId is null => MarketingRecordStatus.WaitingExecutor,
             1 => MarketingRecordStatus.WaitingAccept,
             2 => MarketingRecordStatus.StudyingDocuments,
-            3 => MarketingRecordStatus.RfqPreparation,
-            4 or 5 => MarketingRecordStatus.RfqSent,
-            6 => MarketingRecordStatus.KpAnalysis,
-            7 => MarketingRecordStatus.PlanPreparation,
-            8 => MarketingRecordStatus.PlanPortalApproval,
-            9 => MarketingRecordStatus.PlanMonitoring,
+            3 => MarketingRecordStatus.RfqSent,
+            4 => MarketingRecordStatus.KpAnalysis,
+            5 => MarketingRecordStatus.KpAnalysis,
+            6 => MarketingRecordStatus.PlanPreparation,
+            7 => MarketingRecordStatus.PlanPortalApproval,
+            8 => MarketingRecordStatus.PlanMonitoring,
             _ => MarketingRecordStatus.WaitingExecutor,
         };
     }
@@ -729,7 +1101,8 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
             .Include(r => r.RfqChannelRequests).ThenInclude(c => c.AssignedUser)
             .Include(r => r.Plans)
             .Include(r => r.PortalApprovals)
-            .Include(r => r.Request)
+            .Include(r => r.Request).ThenInclude(req => req!.Initiator)
+            .Include(r => r.Request).ThenInclude(req => req!.TasResponsible)
             .FirstOrDefaultAsync(r => r.DocumentId == documentId, ct);
 
     private async Task<MarketingRecord?> LoadRecordTrackedAsync(Guid documentId, CancellationToken ct) =>
@@ -739,28 +1112,52 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
             .Include(r => r.RfqChannelRequests).ThenInclude(c => c.AssignedUser)
             .Include(r => r.Plans)
             .Include(r => r.PortalApprovals)
-            .Include(r => r.Request).ThenInclude(req => req.Document)
+            .Include(r => r.Request).ThenInclude(req => req!.Document)
+            .Include(r => r.Request).ThenInclude(req => req!.Initiator)
+            .Include(r => r.Request).ThenInclude(req => req!.TasResponsible)
             .FirstOrDefaultAsync(r => r.DocumentId == documentId, ct);
 
-    private MarketingRecordDto MapRecord(MarketingRecord r)
+    private async Task<MarketingRecordDto> MapRecordAsync(MarketingRecord r, CancellationToken ct)
     {
         var remaining = r.DeadlineDate is not null ? MarketingDeadlineService.GetRemainingWorkingDays(r.DeadlineDate.Value) : (int?)null;
         var color = r.DeadlineDate is not null ? MarketingDeadlineService.GetDeadlineColor(r.DeadlineDate.Value) : null;
         var compliant = r.Offers.Where(o => o.MeetsTzRequirements == true).ToList();
         var avg = compliant.Count > 0 ? compliant.Average(o => (double)(o.OfferAmount ?? 0)) : (double?)null;
 
+        var reviewerIds = r.Offers
+            .SelectMany(o => new Guid?[] { o.InitiatorReviewedById, o.EngineerReviewedById })
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+        var reviewerNames = reviewerIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await db.Users.AsNoTracking()
+                .Where(u => reviewerIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
+
+        string? NameOf(Guid? id) =>
+            id is Guid uid && reviewerNames.TryGetValue(uid, out var name) ? name : null;
+
+        var tasResponsibleName = r.Request?.TasResponsible?.FullName
+            ?? r.Request?.Initiator?.FullName
+            ?? r.InitiatorFullName;
+
         return new MarketingRecordDto(
             r.Id, r.DocumentId, r.PortalNumber, r.RegisteredDate, r.InitiatorDepartment, r.InitiatorFullName,
             r.ReceivedDate, r.DeadlineBaseDate, r.RequestCategory, r.DeadlineWorkingDays, r.DeadlineDate,
             remaining, color, r.MarketingExecutorId, r.MarketingExecutor?.FullName,
+            tasResponsibleName,
             r.AssignedByManagerId, r.AssignedByManager?.FullName, r.HandoverDate, r.AcceptedAt,
             r.RequestTitle, r.ProcurementMethod, r.StrategyNumber, r.StrategyNumberManual,
             r.BudgetAmount, r.BudgetCurrency, r.LegalBasis, r.RfqPreparedAt,
-            r.RfqDocumentStorageKey, r.RfqDocumentFileName,
+            r.RfqDocumentStorageKey, r.RfqDocumentFileName, r.RfqCommercialProposalDeadline,
             r.RfqPublishedAtgSite, r.RfqPublishedTenderweek, r.RfqSentToVendor, r.RfqSentToDistributor, r.RfqOpenSearchDone,
             r.TzIssueFound, r.TzIssueDescription, r.TzIssueResolvedAt, r.Status,
             r.Request?.MarketingCurrentStep ?? 1, r.Notes,
-            r.Offers.OrderByDescending(o => o.CreatedAt).Select(MapOffer).ToList(),
+            r.Offers.OrderByDescending(o => o.CreatedAt)
+                .Select(o => MapOffer(o, NameOf(o.InitiatorReviewedById), NameOf(o.EngineerReviewedById)))
+                .ToList(),
             r.RfqDispatches.OrderByDescending(d => d.SentAt).Select(MapDispatch).ToList(),
             r.RfqChannelRequests.OrderBy(c => c.CreatedAt).Select(MapChannelRequest).ToList(),
             r.Plans.OrderByDescending(p => p.Version).Select(MapPlan).ToList(),
@@ -769,7 +1166,7 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
             r.CreatedAt, r.UpdatedAt);
     }
 
-    private static MarketingRecordListItemDto MapListItem(MarketingRecord r)
+    private static MarketingRecordListItemDto MapListItem(MarketingRecord r, int offerCount)
     {
         var remaining = r.DeadlineDate is not null ? MarketingDeadlineService.GetRemainingWorkingDays(r.DeadlineDate.Value) : (int?)null;
         return new MarketingRecordListItemDto(
@@ -777,13 +1174,21 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
             r.DeadlineDate, remaining,
             r.DeadlineDate is not null ? MarketingDeadlineService.GetDeadlineColor(r.DeadlineDate.Value) : null,
             r.MarketingExecutor?.FullName, r.InitiatorDepartment, r.BudgetAmount, r.BudgetCurrency,
-            r.Offers.Count, r.UpdatedAt);
+            offerCount, r.UpdatedAt);
     }
 
-    private static MarketingOfferDto MapOffer(MarketingOffer o) => new(
+    private static MarketingOfferDto MapOffer(
+        MarketingOffer o,
+        string? initiatorReviewerName = null,
+        string? engineerReviewerName = null) => new(
         o.Id, o.CompanyName, o.OfferAmount, o.Currency, o.VatIncluded, o.DeliveryIncluded,
         o.WarrantyTerms, o.OfferDate, o.OfferValidityDate, o.ContactInfo, o.MeetsTzRequirements,
-        o.RejectionReason, o.IsAffiliated, o.AffiliationNote, o.Source, o.AttachmentKey, o.CreatedAt);
+        o.RejectionReason, o.IsAffiliated, o.AffiliationNote, o.Source, o.AttachmentKey,
+        o.InitiatorReviewStatus, o.InitiatorReviewedById, initiatorReviewerName, o.InitiatorReviewedAt,
+        o.InitiatorReviewComment,
+        o.EngineerReviewStatus, o.EngineerReviewedById, engineerReviewerName, o.EngineerReviewedAt,
+        o.EngineerReviewComment,
+        o.CreatedAt);
 
     private static RfqDispatchDto MapDispatch(RfqDispatch d) => new(
         d.Id, d.DispatchType, d.RecipientName, d.RecipientEmail, d.RecipientPhone,
@@ -794,7 +1199,9 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         c.AssignedUser?.FullName, c.CreatedAt, c.CompletedAt);
 
     private static MarketingProcurementPlanDto MapPlan(MarketingProcurementPlan p) => new(
-        p.Id, p.Version, p.ProcurementMethod, p.StartPrice, p.StartPriceCurrency, p.VatConsidered,
+        p.Id, p.Version, p.ProcurementMethod, p.RegistrationMethod, p.RegistrationNumber,
+        p.TemplateStorageKey, p.TemplateFileName, p.RegisteredAt,
+        p.StartPrice, p.StartPriceCurrency, p.VatConsidered,
         p.Incoterms, p.CompetitionCriteria, p.EvaluationGroupMembers, p.NdsNote, p.Status,
         p.RejectionNotes, p.SubmittedAt, p.ApprovedAt, p.AttachmentKey, p.CreatedAt);
 
@@ -802,7 +1209,7 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         p.Id, p.ApprovalType, p.SubmittedAt, p.ApprovedAt, p.BudgetNumber, p.ReminderSentAt, p.Notes);
 
     private async Task<User?> GetActorAsync(Guid actorId, CancellationToken ct) =>
-        await db.Users.Include(u => u.Organization).Include(u => u.Department)
+        await db.Users.AsNoTracking().Include(u => u.Organization).Include(u => u.Department)
             .FirstOrDefaultAsync(u => u.Id == actorId && u.IsActive, ct);
 
     private async Task<User?> GetMarketingWorkerAsync(Guid userId, CancellationToken ct)
@@ -838,6 +1245,42 @@ public class MarketingService(AppDbContext db, IAuditService audit, MarketingRfq
         return record.MarketingExecutorId == actor.Id;
     }
 
+    private async Task<bool> IsMarketingEngineerForRecordAsync(Guid actorId, MarketingRecord record, CancellationToken ct)
+    {
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null) return false;
+        if (IsMarketingManager(actor)) return true;
+
+        var detail = record.Request;
+        if (detail?.MarketingSpecialistId == actorId) return true;
+        if (detail?.MarketingSpecialistId is null && detail?.Document.AssigneeId == actorId
+            && actor.Department?.Code is "HO-MKT" or "HO-MKT-MKT" or "HO-MKT-TND")
+            return true;
+
+        return record.MarketingExecutorId == actorId;
+    }
+
+    private async Task<bool> CanReviewProposalAsTasAsync(ProcurementRequestDetail detail, Guid actorId, CancellationToken ct)
+    {
+        if (detail.Flow != ProcurementRequestFlow.TechnicalAffairs)
+            return detail.InitiatorId == actorId;
+
+        var tasResponsibleId = detail.TasResponsibleId;
+        if (tasResponsibleId is null && detail.ResponsibleTaskId is not null)
+        {
+            tasResponsibleId = await db.WorkTasks.AsNoTracking()
+                .Where(t => t.Id == detail.ResponsibleTaskId)
+                .Select(t => t.AssigneeId)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return tasResponsibleId == actorId;
+    }
+
     private static bool CanView(User actor, MarketingRecord record) =>
-        IsMarketingStaff(actor) || record.MarketingExecutorId == actor.Id;
+        IsMarketingStaff(actor)
+        || record.MarketingExecutorId == actor.Id
+        || record.Request?.TasResponsibleId == actor.Id
+        || (record.Request?.Flow != ProcurementRequestFlow.TechnicalAffairs
+            && record.Request?.InitiatorId == actor.Id);
 }

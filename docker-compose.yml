@@ -30,6 +30,13 @@ services:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
 
+  e-imzo-server:
+    build:
+      context: ./e-imzo-server
+    restart: unless-stopped
+    ports:
+      - "${EIMZO_SERVER_PORT:-18080}:8080"
+
   api:
     build:
       context: .
@@ -39,6 +46,8 @@ services:
       postgres:
         condition: service_healthy
       minio:
+        condition: service_started
+      e-imzo-server:
         condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
@@ -56,6 +65,15 @@ services:
       Minio__Bucket: atg-marketing
       Minio__UseSsl: "false"
       Hangfire__Enabled: "true"
+      Eimzo__Enabled: "true"
+      Eimzo__ServerBaseUrl: http://e-imzo-server:8080
+      Eimzo__SiteHost: ${EIMZO_SITE_HOST:-unilogin.atg.uz}
+      Eimzo__FrontendApiKey: ${EIMZO_FRONTEND_API_KEY:-}
+      Eimzo__ClientIp: ${EIMZO_CLIENT_IP:-}
+      Eimzo__AllowUnsignedPkcs7: ${EIMZO_ALLOW_UNSIGNED_PKCS7:-true}
+      HrLeave__ShortHoApprovalChain: ${HR_LEAVE_SHORT_HO_CHAIN:-true}
+      HrLeave__HoGeneralDirectorEmail: ${HR_LEAVE_HO_GD_EMAIL:-liuzhiguang@atg.uz}
+      HrLeave__PublicAppBaseUrl: ${HR_LEAVE_PUBLIC_APP_URL:-http://localhost:3000}
     volumes:
       - api_uploads:/app/uploads
     ports:
@@ -68,6 +86,8 @@ services:
       args:
         INTERNAL_API_URL: http://api:8080
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5161}
+        NEXT_PUBLIC_EIMZO_DOMAIN: ${NEXT_PUBLIC_EIMZO_DOMAIN:-unilogin.atg.uz}
+        NEXT_PUBLIC_EIMZO_API_KEY: ${NEXT_PUBLIC_EIMZO_API_KEY:-}
     restart: unless-stopped
     depends_on:
       - api

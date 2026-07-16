@@ -21,6 +21,14 @@ public class MarketingOffer
     public string? AffiliationNote { get; set; }
     public MarketingOfferSource Source { get; set; } = MarketingOfferSource.Manual;
     public string? AttachmentKey { get; set; }
+    public MarketingInitiatorReviewStatus InitiatorReviewStatus { get; set; } = MarketingInitiatorReviewStatus.Pending;
+    public Guid? InitiatorReviewedById { get; set; }
+    public DateTime? InitiatorReviewedAt { get; set; }
+    public string? InitiatorReviewComment { get; set; }
+    public MarketingInitiatorReviewStatus EngineerReviewStatus { get; set; } = MarketingInitiatorReviewStatus.Pending;
+    public Guid? EngineerReviewedById { get; set; }
+    public DateTime? EngineerReviewedAt { get; set; }
+    public string? EngineerReviewComment { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public MarketingRecord Record { get; set; } = null!;

@@ -13,7 +13,7 @@ interface Props {
   nextLabel: string;
   viewCompletedHint?: string;
   viewUpcomingHint?: string;
-  accent?: "sky" | "violet";
+  accent?: "sky" | "violet" | "amber";
   onPrevious: () => void;
   onNext: () => void;
   onSelectStep?: (step: number) => void;
@@ -37,14 +37,19 @@ export function WorkflowStepNavigator({
   const canNext = viewStep < totalSteps;
   const isViewingCurrent = viewStep === workflowStep;
   const isUpcoming = viewStep > workflowStep;
-  const dotActive = accent === "violet" ? "bg-violet-500" : "bg-sky-500";
+  const dotActive =
+    accent === "violet" ? "bg-violet-500" : accent === "amber" ? "bg-amber-500" : "bg-sky-500";
   const dotDone = "bg-emerald-500";
 
   return (
     <div
       className={cn(
         "border-t",
-        accent === "violet" ? "border-violet-500/15" : "border-sky-500/15"
+        accent === "violet"
+          ? "border-violet-500/15"
+          : accent === "amber"
+            ? "border-amber-500/15"
+            : "border-sky-500/15"
       )}
     >
       {onSelectStep && (

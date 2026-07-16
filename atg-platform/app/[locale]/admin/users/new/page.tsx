@@ -26,7 +26,7 @@ export default function UserFormPage({ params }: { params: Promise<{ id?: string
   const [positions, setPositions] = useState<Position[]>([]);
   const [useLdap, setUseLdap] = useState(true);
   const [form, setForm] = useState({
-    employeeId: "", firstName: "", lastName: "", middleName: "", email: "", phone: "",
+    employeeId: "", firstName: "", lastName: "", middleName: "", email: "", phone: "", pinpp: "",
     organizationId: "", departmentId: "", positionId: "", role: "HOEngineer", language: "ru",
     password: "", confirmPassword: "",
   });
@@ -71,7 +71,7 @@ export default function UserFormPage({ params }: { params: Promise<{ id?: string
       const u = r.data;
       setForm({
         employeeId: u.employeeId || "", firstName: u.firstName, lastName: u.lastName, middleName: u.middleName || "",
-        email: u.email, phone: u.phone || "", organizationId: u.organizationId, departmentId: u.departmentId || "",
+        email: u.email, phone: u.phone || "", pinpp: u.pinpp || "", organizationId: u.organizationId, departmentId: u.departmentId || "",
         positionId: u.positionId || "", role: u.role, language: u.language, password: "", confirmPassword: "",
       });
     });
@@ -92,7 +92,7 @@ export default function UserFormPage({ params }: { params: Promise<{ id?: string
     try {
       const body = {
         employeeId: form.employeeId, firstName: form.firstName, lastName: form.lastName, middleName: form.middleName || null,
-        email: form.email, phone: form.phone || null, organizationId: form.organizationId,
+        email: form.email, phone: form.phone || null, pinpp: form.pinpp || null, organizationId: form.organizationId,
         departmentId: form.departmentId || null, positionId: form.positionId || null,
         role: form.role, language: form.language,
         useLdap,
@@ -123,6 +123,11 @@ export default function UserFormPage({ params }: { params: Promise<{ id?: string
             <div><label className="text-sm">{t("employeeId")} *</label><Input value={form.employeeId} onChange={(e) => set("employeeId", e.target.value)} required /></div>
             <div><label className="text-sm">{t("email")} *</label><Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} required placeholder="user@atg.uz" /></div>
             <div><label className="text-sm">{t("phone")}</label><Input value={form.phone} onChange={(e) => set("phone", e.target.value)} /></div>
+            <div>
+              <label className="text-sm">{t("pinpp")}</label>
+              <Input value={form.pinpp} onChange={(e) => set("pinpp", e.target.value)} maxLength={14} placeholder="12345678901234" />
+              <p className="text-xs text-foreground/45 mt-1">{t("pinppHint")}</p>
+            </div>
           </div>
         </section>
         <section>

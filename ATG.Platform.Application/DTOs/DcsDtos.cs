@@ -69,7 +69,11 @@ public record DocumentListItemDto(
     int? ProcurementCurrentStep = null,
     string? InitiatorName = null,
     TaskPriority? Priority = null,
-    ProcurementRegion? Region = null);
+    ProcurementRegion? Region = null,
+    IncomingLetterPhase? IncomingLetterPhase = null,
+    OutgoingLetterPhase? OutgoingLetterPhase = null,
+    MemoPhase? MemoPhase = null,
+    OrderPhase? OrderPhase = null);
 
 public record DocumentActivityDto(
     Guid Id,

@@ -8,7 +8,7 @@ namespace ATG.Platform.API.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService auth) : ControllerBase
+public class AuthController(IAuthService auth, IUserService users) : ControllerBase
 {
     [HttpPost("login")]
     [AllowAnonymous]
@@ -57,6 +57,28 @@ public class AuthController(IAuthService auth) : ControllerBase
         var result = await auth.GetCurrentUserAsync(userId.Value, ct);
         return result.IsSuccess ? Ok(result.Data) : NotFound(new { error = result.Error });
     }
+
+    [HttpPatch("me/pinpp")]
+    [Authorize]
+    public async Task<IActionResult> SetMyPinpp([FromBody] SetPinppRequest request, CancellationToken ct)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+        var result = await users.SetMyPinppAsync(userId.Value, request.Pinpp, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPatch("me/profile")]
+    [Authorize]
+    public async Task<IActionResult> CompleteMyProfile([FromBody] CompleteMyProfileRequest request, CancellationToken ct)
+    {
+        var userId = GetUserId();
+        if (userId is null) return Unauthorized();
+        var result = await users.CompleteMyProfileAsync(userId.Value, request, GetIp(), ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    private string? GetIp() => HttpContext.Connection.RemoteIpAddress?.ToString();
 
     private Guid? GetUserId()
     {

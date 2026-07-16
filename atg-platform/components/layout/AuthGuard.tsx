@@ -6,6 +6,7 @@ import { useLocale } from "next-intl";
 import { useAuthStore } from "@/store/authStore";
 import { fetchMe } from "@/lib/auth";
 import { isAdminRole } from "@/lib/utils";
+import { ProfileSetupModal } from "@/components/profile/ProfileSetupModal";
 
 export function AuthGuard({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const router = useRouter();
@@ -59,5 +60,18 @@ export function AuthGuard({ children, adminOnly = false }: { children: React.Rea
       </div>
     );
   }
+
+  const currentUser = user;
+  if (currentUser?.requiresProfileSetup) {
+    return (
+      <ProfileSetupModal
+        user={currentUser}
+        onCompleted={(updated) => {
+          setAuth(useAuthStore.getState().accessToken || "", updated);
+        }}
+      />
+    );
+  }
+
   return <>{children}</>;
 }

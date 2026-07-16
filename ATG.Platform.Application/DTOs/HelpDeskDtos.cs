@@ -36,6 +36,13 @@ public record TicketDto(
     DateTime? StartedAt,
     DateTime? CompletedAt,
     DateTime? ClosedAt,
+    string? SourceLanguage,
+    IReadOnlyList<string> TranslatingLanguages,
+    Guid? LinkedDocumentId,
+    string? LinkedOriginalFileName,
+    string? LinkedOriginalStorageKey,
+    string? LinkedTranslatedFileName,
+    string? LinkedTranslatedStorageKey,
     IReadOnlyList<TicketCommentDto> Comments,
     IReadOnlyList<TicketActivityDto> Activities);
 
@@ -75,11 +82,15 @@ public record CreateTicketRequest(
     string Title,
     string Description,
     TicketCategory Category,
-    TicketPriority Priority);
+    TicketPriority Priority,
+    string? SourceLanguage = null,
+    string? TranslatingLanguage = null);
 
 public record AssignTicketRequest(Guid AssigneeId);
 
 public record AddTicketCommentRequest(string Body, bool IsInternal = false);
+
+public record UploadTranslationDocumentRequest(string FileName, string StorageKey);
 
 public record HelpDeskDashboardDto(
     int TotalOpen,

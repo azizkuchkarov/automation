@@ -1,20 +1,26 @@
 using ATG.Platform.Application.Common;
 using ATG.Platform.Application.DTOs;
 using ATG.Platform.Application.Interfaces;
+using ATG.Platform.Application.Options;
 using ATG.Platform.Domain.Entities;
 using ATG.Platform.Domain.Enums;
 using ATG.Platform.Infrastructure.Data;
 using ATG.Platform.Infrastructure.Hr;
 using ATG.Platform.Infrastructure.Seeds;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ATG.Platform.Infrastructure.Services;
 
 public class HrLeaveRequestService(
     AppDbContext db,
     IAuditService audit,
-    INotificationService notifications) : IHrLeaveRequestService
+    INotificationService notifications,
+    IEimzoServerClient eimzo,
+    IFileStorageService files,
+    IOptions<HrLeaveOptions> hrLeaveOptions) : IHrLeaveRequestService
 {
+    private readonly HrLeaveOptions _hrLeaveOptions = hrLeaveOptions.Value;
     private const int HrParallelGroup = 0;
     private const int SequentialGroup = 1;
 
@@ -28,8 +34,12 @@ public class HrLeaveRequestService(
 
     private static readonly string[] HoHrReviewerEmails =
     [
-        "kh.karimberdieva@atg.uz",
         "g.rakhmatullaeva@atg.uz",
+    ];
+
+    private static readonly string[] BmgmcHrReviewerEmails =
+    [
+        "n.naimova@atg.uz",
     ];
 
     public async Task<Result<IReadOnlyList<HrLeaveListItemDto>>> GetMyRequestsAsync(Guid actorId, CancellationToken ct = default)
@@ -49,19 +59,75 @@ public class HrLeaveRequestService(
     {
         var actor = await GetActorAsync(actorId, ct);
         if (actor is null) return Result<IReadOnlyList<HrLeaveListItemDto>>.Fail("User not found");
-        if (!IsHrStaff(actor)) return Result<IReadOnlyList<HrLeaveListItemDto>>.Fail("Access denied");
 
-        var hrDeptIds = await GetAccessibleHrDepartmentIdsAsync(actor, ct);
-        var items = await db.HrLeaveRequestDetails.AsNoTracking()
+        var items = new List<HrLeaveListItemDto>();
+
+        if (IsHrStaff(actor))
+        {
+            var hrDeptIds = await GetAccessibleHrDepartmentIdsAsync(actor, ct);
+            var hrItems = await db.HrLeaveRequestDetails.AsNoTracking()
+                .Include(d => d.Document).ThenInclude(doc => doc.Author)
+                .Include(d => d.Document).ThenInclude(doc => doc.Department)
+                .Include(d => d.Items)
+                .Where(d => hrDeptIds.Contains(d.HrDepartmentId)
+                    && (d.Phase == HrLeaveRequestPhase.HrReview || d.Phase == HrLeaveRequestPhase.AwaitingApproval))
+                .OrderByDescending(d => d.Document.UpdatedAt)
+                .Select(d => MapListItem(d))
+                .ToListAsync(ct);
+            items.AddRange(hrItems);
+        }
+
+        var approverItems = await GetMyPendingApprovalQueueAsync(actorId, ct);
+        foreach (var item in approverItems)
+        {
+            if (items.All(i => i.Id != item.Id))
+                items.Add(item);
+        }
+
+        if (await IsOrderResponsibleAsync(actor, ct))
+        {
+            var orderItems = await db.HrLeaveRequestDetails.AsNoTracking()
+                .Include(d => d.Document).ThenInclude(doc => doc.Author)
+                .Include(d => d.Document).ThenInclude(doc => doc.Department)
+                .Include(d => d.Items)
+                .Where(d => d.Phase == HrLeaveRequestPhase.Approved && d.Document.AssigneeId == actorId)
+                .OrderByDescending(d => d.Document.UpdatedAt)
+                .Select(d => MapListItem(d))
+                .ToListAsync(ct);
+            foreach (var item in orderItems)
+            {
+                if (items.All(i => i.Id != item.Id))
+                    items.Add(item);
+            }
+        }
+
+        items = items.OrderByDescending(i => i.CreatedAt).ToList();
+        return Result<IReadOnlyList<HrLeaveListItemDto>>.Ok(items);
+    }
+
+    private async Task<List<HrLeaveListItemDto>> GetMyPendingApprovalQueueAsync(Guid actorId, CancellationToken ct)
+    {
+        var details = await db.HrLeaveRequestDetails.AsNoTracking()
             .Include(d => d.Document).ThenInclude(doc => doc.Author)
             .Include(d => d.Document).ThenInclude(doc => doc.Department)
             .Include(d => d.Items)
-            .Where(d => hrDeptIds.Contains(d.HrDepartmentId)
-                && (d.Phase == HrLeaveRequestPhase.HrReview || d.Phase == HrLeaveRequestPhase.AwaitingApproval))
+            .Include(d => d.Approvers)
+            .Where(d => d.Phase == HrLeaveRequestPhase.HrReview || d.Phase == HrLeaveRequestPhase.AwaitingApproval)
+            .Where(d => d.Approvers.Any(a =>
+                a.UserId == actorId
+                && a.Status == HrLeaveApproverStatus.Pending
+                && (
+                    (d.Phase == HrLeaveRequestPhase.HrReview && a.ApprovalGroup == HrParallelGroup)
+                    || (d.Phase == HrLeaveRequestPhase.AwaitingApproval
+                        && a.ApprovalGroup == SequentialGroup
+                        && !d.Approvers.Any(b =>
+                            b.ApprovalGroup == SequentialGroup
+                            && b.Status == HrLeaveApproverStatus.Pending
+                            && b.SortOrder < a.SortOrder)))))
             .OrderByDescending(d => d.Document.UpdatedAt)
-            .Select(d => MapListItem(d))
             .ToListAsync(ct);
-        return Result<IReadOnlyList<HrLeaveListItemDto>>.Ok(items);
+
+        return details.Select(MapListItem).ToList();
     }
 
     public async Task<Result<HrLeaveRequestDto>> GetByIdAsync(Guid id, Guid actorId, CancellationToken ct = default)
@@ -237,6 +303,16 @@ public class HrLeaveRequestService(
         if (approver.UserId != actorId)
             return Result<HrLeaveRequestDto>.Fail("Wait for the previous approver in the chain");
 
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null) return Result<HrLeaveRequestDto>.Fail("User not found");
+
+        if (RequiresEimzoSignature(detail, approver, actor))
+        {
+            var eimzoResult = await ProcessEimzoApprovalAsync(detail, approver, actor, request, ip, ct);
+            if (eimzoResult is not null)
+                return eimzoResult;
+        }
+
         approver.Status = HrLeaveApproverStatus.Approved;
         approver.DecidedAt = DateTime.UtcNow;
         approver.Comment = request.Comment?.Trim();
@@ -253,6 +329,27 @@ public class HrLeaveRequestService(
             detail.Document.Status = DocumentStatus.Approved;
             await AddActivityAsync(detail.Document, actorId, "fully_approved", null,
                 DocumentStatus.Approved, null, ct);
+
+            var orderResponsible = await GetOrderResponsibleAsync(detail, ct);
+            if (orderResponsible is not null)
+            {
+                detail.Document.AssigneeId = orderResponsible.Id;
+                await CreateLinkedTaskAsync(
+                    orderResponsible.Id,
+                    actorId,
+                    orderResponsible.DepartmentId ?? detail.HrDepartmentId,
+                    detail.Document.OrganizationId,
+                    $"Issue leave order — {detail.Document.Number}",
+                    detail.Document.Title,
+                    detail.Document.Id,
+                    ct);
+                await notifications.NotifyDcsApprovalRequiredAsync(
+                    orderResponsible.Id, detail.Document.Number, detail.Document.Title, detail.DocumentId, ct);
+            }
+            else
+            {
+                detail.Document.AssigneeId = detail.Document.AuthorId;
+            }
         }
         else
         {
@@ -262,8 +359,431 @@ public class HrLeaveRequestService(
         await db.SaveChangesAsync(ct);
         await audit.LogAsync(actorId, "HrLeaveApproved", "Document", id, approver.Role.ToString(), ip, ct);
 
+        return Result<HrLeaveRequestDto>.Ok(await MapDetailAsync(detail, actor, ct));
+    }
+
+    public async Task<Result<HrLeaveSigningPackageDto>> GetSigningPackageAsync(
+        Guid id, Guid actorId, CancellationToken ct = default)
+    {
+        var detail = await LoadDetailTrackedAsync(id, ct);
+        if (detail is null) return Result<HrLeaveSigningPackageDto>.Fail("Request not found");
+
         var actor = await GetActorAsync(actorId, ct);
-        return Result<HrLeaveRequestDto>.Ok(await MapDetailAsync(detail, actor!, ct));
+        if (actor is null || !CanView(actor, detail))
+            return Result<HrLeaveSigningPackageDto>.Fail("Access denied");
+
+        var approver = GetNextPendingSequentialApprover(detail);
+        if (approver is null || approver.UserId != actorId)
+            return Result<HrLeaveSigningPackageDto>.Fail("You are not the pending approver");
+        if (!RequiresEimzoSignature(detail, approver, actor))
+            return Result<HrLeaveSigningPackageDto>.Fail("E-IMZO is not required for this approval step");
+
+        await EnsureSigningArtifactsAsync(detail, ct);
+        await db.SaveChangesAsync(ct);
+        var canonicalJson = HrLeaveSigningPayloadBuilder.BuildCanonicalJson(detail);
+        var pdfBytes = await GetPdfBytesAsync(detail, ct);
+
+        return Result<HrLeaveSigningPackageDto>.Ok(new HrLeaveSigningPackageDto(
+            HrLeaveSigningPayloadBuilder.ToBase64(canonicalJson),
+            Convert.ToBase64String(pdfBytes),
+            detail.SigningPayloadHash!,
+            detail.Document.Number));
+    }
+
+    public async Task<Result<(Stream Stream, string ContentType, string FileName)>> DownloadPdfAsync(
+        Guid id, Guid actorId, CancellationToken ct = default) =>
+        await DownloadStoredFileAsync(id, actorId, detail => detail.PdfStorageKey, "application/pdf", "_unsigned.pdf", ct);
+
+    public async Task<Result<(Stream Stream, string ContentType, string FileName)>> DownloadSignedPdfAsync(
+        Guid id, Guid actorId, string? clientIp, CancellationToken ct = default)
+    {
+        var detail = await LoadDetailAsync(id, ct);
+        if (detail is null) return Result<(Stream, string, string)>.Fail("Request not found");
+
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null || !CanView(actor, detail))
+            return Result<(Stream, string, string)>.Fail("Access denied");
+
+        var pkcs7Key = GetSignedPdfStorageKey(detail);
+        if (string.IsNullOrWhiteSpace(pkcs7Key))
+            return Result<(Stream, string, string)>.Fail("Signed PDF is not available yet");
+
+        if (!string.IsNullOrWhiteSpace(detail.PdfPresentationStorageKey))
+            return await OpenStoredFileAsync(
+                detail.PdfPresentationStorageKey,
+                "application/pdf",
+                $"{detail.Document.Number}_signed.pdf",
+                ct);
+
+        if (detail.EimzoCompletedAt.HasValue)
+        {
+            var regenerated = await TryRegeneratePresentationPdfAsync(detail, clientIp, ct);
+            if (regenerated.IsSuccess)
+                return await OpenStoredFileAsync(
+                    regenerated.Data!,
+                    "application/pdf",
+                    $"{detail.Document.Number}_signed.pdf",
+                    ct);
+        }
+
+        return await ExtractPdfFromSignedPkcs7Async(pkcs7Key, detail.Document.Number, clientIp, ct);
+    }
+
+    public async Task<Result<(Stream Stream, string ContentType, string FileName)>> DownloadSignedPkcs7Async(
+        Guid id, Guid actorId, CancellationToken ct = default)
+    {
+        var detail = await LoadDetailAsync(id, ct);
+        if (detail is null) return Result<(Stream, string, string)>.Fail("Request not found");
+
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null || !CanView(actor, detail))
+            return Result<(Stream, string, string)>.Fail("Access denied");
+
+        var key = GetSignedPdfStorageKey(detail);
+        if (string.IsNullOrWhiteSpace(key))
+            return Result<(Stream, string, string)>.Fail("Signed PDF is not available yet");
+
+        return await OpenStoredFileAsync(key, "application/pkcs7-mime", $"{detail.Document.Number}_signed.p7m", ct);
+    }
+
+    private static string? GetSignedPdfStorageKey(HrLeaveRequestDetail detail) =>
+        detail.Signatures.FirstOrDefault(s => s.Kind == HrLeaveSignatureKind.PdfAttached)?.StorageKey
+        ?? detail.PdfSignedStorageKey;
+
+    private async Task<Result<(Stream Stream, string ContentType, string FileName)>> ExtractPdfFromSignedPkcs7Async(
+        string pkcs7StorageKey, string documentNumber, string? clientIp, CancellationToken ct)
+    {
+        var stored = await files.DownloadAsync(pkcs7StorageKey, ct);
+        if (stored is null)
+            return Result<(Stream, string, string)>.Fail("File not found in storage");
+
+        await using var pkcs7Stream = stored.Value.Stream;
+        using var buffer = new MemoryStream();
+        await pkcs7Stream.CopyToAsync(buffer, ct);
+        var pkcs7Base64 = Convert.ToBase64String(buffer.ToArray());
+
+        var verify = await eimzo.VerifyAttachedAsync(pkcs7Base64, clientIp ?? "127.0.0.1", ct);
+        if (!verify.IsSuccess)
+            return Result<(Stream, string, string)>.Fail(verify.Error ?? "Signature verification failed");
+
+        if (string.IsNullOrWhiteSpace(verify.Data?.DocumentBase64))
+            return Result<(Stream, string, string)>.Fail("PDF could not be extracted from the signature file");
+
+        byte[] pdfBytes;
+        try
+        {
+            pdfBytes = Convert.FromBase64String(verify.Data.DocumentBase64.Trim());
+        }
+        catch
+        {
+            return Result<(Stream, string, string)>.Fail("Invalid PDF data in signature file");
+        }
+
+        return Result<(Stream, string, string)>.Ok((
+            new MemoryStream(pdfBytes),
+            "application/pdf",
+            $"{documentNumber}_signed.pdf"));
+    }
+
+    private string BuildLeaveVerificationUrl(HrLeaveRequestDetail detail) =>
+        $"{_hrLeaveOptions.PublicAppBaseUrl.TrimEnd('/')}/ru/hr/leave/{detail.DocumentId}";
+
+    private static List<HrLeavePdfStamp> BuildPresentationStamps(
+        HrLeaveRequestDetail detail,
+        EimzoVerifyResultDto eimzoVerify,
+        DateTime signedAtUtc,
+        string? ip)
+    {
+        var number = detail.Document.Number;
+        var stamps = new List<HrLeavePdfStamp>
+        {
+            new(
+                "ЮБОРИЛГАН",
+                HrLeaveStampStyle.Sent,
+                number,
+                detail.Document.CreatedAt,
+                detail.Document.Author.FullName,
+                null,
+                "ATG Platform",
+                null),
+        };
+
+        var hrApprover = detail.Approvers
+            .Where(a => a.ApprovalGroup == HrParallelGroup && a.Status == HrLeaveApproverStatus.Approved)
+            .OrderByDescending(a => a.DecidedAt)
+            .FirstOrDefault();
+        if (hrApprover?.User is not null)
+        {
+            stamps.Add(new HrLeavePdfStamp(
+                "TEKSHIRILGAN",
+                HrLeaveStampStyle.Reviewed,
+                number,
+                hrApprover.DecidedAt ?? detail.HrReviewCompletedAt ?? signedAtUtc,
+                hrApprover.User.FullName,
+                null,
+                "ATG Platform / HR",
+                null));
+        }
+
+        var eimzoSignedAt = ParseEimzoSigningTime(eimzoVerify.SigningTime) ?? signedAtUtc;
+        stamps.Add(new HrLeavePdfStamp(
+            "ТАСДИКЛАНГАН",
+            HrLeaveStampStyle.Approved,
+            number,
+            eimzoSignedAt,
+            eimzoVerify.SignerFullName ?? "",
+            eimzoVerify.SignerPinpp,
+            "ATG Platform / E-IMZO",
+            ip));
+
+        return stamps;
+    }
+
+    private static DateTime? ParseEimzoSigningTime(string? signingTime)
+    {
+        if (string.IsNullOrWhiteSpace(signingTime)) return null;
+        return DateTime.TryParse(signingTime, out var parsed) ? parsed : null;
+    }
+
+    private async Task<Result<string>> TryRegeneratePresentationPdfAsync(
+        HrLeaveRequestDetail detail, string? clientIp, CancellationToken ct)
+    {
+        var pdfSignature = detail.Signatures.FirstOrDefault(s => s.Kind == HrLeaveSignatureKind.PdfAttached);
+        if (pdfSignature is null) return Result<string>.Fail("No signature");
+
+        EimzoVerifyResultDto verifyData;
+        if (!string.IsNullOrWhiteSpace(pdfSignature.SignerCn))
+        {
+            verifyData = new EimzoVerifyResultDto(
+                true, null, pdfSignature.SignerCn, pdfSignature.SignerPinpp,
+                pdfSignature.SignerTin, pdfSignature.CertificateSerial,
+                pdfSignature.SignedAt.ToString("O"), null);
+        }
+        else
+        {
+            var pkcs7Key = pdfSignature.StorageKey ?? detail.PdfSignedStorageKey;
+            if (string.IsNullOrWhiteSpace(pkcs7Key)) return Result<string>.Fail("No PKCS7");
+            var stored = await files.DownloadAsync(pkcs7Key, ct);
+            if (stored is null) return Result<string>.Fail("PKCS7 not found");
+            await using var stream = stored.Value.Stream;
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer, ct);
+            var verify = await eimzo.VerifyAttachedAsync(
+                Convert.ToBase64String(buffer.ToArray()), clientIp ?? "127.0.0.1", ct);
+            if (!verify.IsSuccess || verify.Data is null) return Result<string>.Fail(verify.Error ?? "Verify failed");
+            verifyData = verify.Data;
+        }
+
+        var stamps = BuildPresentationStamps(detail, verifyData, pdfSignature.SignedAt, null);
+        var bytes = HrLeavePresentationPdfGenerator.Generate(detail, stamps, BuildLeaveVerificationUrl(detail));
+        await using var presentationStream = new MemoryStream(bytes);
+        var key = await files.UploadAsync(
+            "hr-leave",
+            $"{detail.Document.Number}_presentation.pdf",
+            presentationStream,
+            "application/pdf",
+            ct);
+
+        var tracked = await db.HrLeaveRequestDetails.FirstOrDefaultAsync(d => d.DocumentId == detail.DocumentId, ct);
+        if (tracked is not null)
+        {
+            tracked.PdfPresentationStorageKey = key;
+            await db.SaveChangesAsync(ct);
+        }
+
+        return Result<string>.Ok(key);
+    }
+
+    public async Task<Result<(Stream Stream, string ContentType, string FileName)>> DownloadJsonSignatureAsync(
+        Guid id, Guid actorId, CancellationToken ct = default)
+    {
+        var detail = await LoadDetailAsync(id, ct);
+        if (detail is null) return Result<(Stream, string, string)>.Fail("Request not found");
+
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null || !CanView(actor, detail))
+            return Result<(Stream, string, string)>.Fail("Access denied");
+
+        var signature = detail.Signatures
+            .FirstOrDefault(s => s.Kind == HrLeaveSignatureKind.JsonDetached);
+        if (signature is null || string.IsNullOrWhiteSpace(signature.Pkcs7Base64))
+            return Result<(Stream, string, string)>.Fail("JSON signature is not available yet");
+
+        var bytes = Convert.FromBase64String(signature.Pkcs7Base64.Trim());
+        return Result<(Stream, string, string)>.Ok((
+            new MemoryStream(bytes),
+            "application/pkcs7-signature",
+            $"{detail.Document.Number}_json.p7s"));
+    }
+
+    private async Task<Result<(Stream Stream, string ContentType, string FileName)>> DownloadStoredFileAsync(
+        Guid id,
+        Guid actorId,
+        Func<HrLeaveRequestDetail, string?> keySelector,
+        string contentType,
+        string fileSuffix,
+        CancellationToken ct)
+    {
+        var detail = await LoadDetailAsync(id, ct);
+        if (detail is null) return Result<(Stream, string, string)>.Fail("Request not found");
+
+        var actor = await GetActorAsync(actorId, ct);
+        if (actor is null || !CanView(actor, detail))
+            return Result<(Stream, string, string)>.Fail("Access denied");
+
+        var key = keySelector(detail);
+        if (string.IsNullOrWhiteSpace(key))
+            return Result<(Stream, string, string)>.Fail("PDF is not available yet");
+
+        return await OpenStoredFileAsync(key, contentType, $"{detail.Document.Number}{fileSuffix}", ct);
+    }
+
+    private async Task<Result<(Stream Stream, string ContentType, string FileName)>> OpenStoredFileAsync(
+        string key, string contentType, string fileName, CancellationToken ct)
+    {
+        var stored = await files.DownloadAsync(key, ct);
+        if (stored is null)
+            return Result<(Stream, string, string)>.Fail("File not found in storage");
+
+        return Result<(Stream, string, string)>.Ok((stored.Value.Stream, contentType, fileName));
+    }
+
+    private async Task<Result<HrLeaveRequestDto>?> ProcessEimzoApprovalAsync(
+        HrLeaveRequestDetail detail,
+        HrLeaveApprover approver,
+        User actor,
+        HrLeaveApprovalRequest request,
+        string? ip,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.JsonPkcs7) || string.IsNullOrWhiteSpace(request.PdfPkcs7))
+            return Result<HrLeaveRequestDto>.Fail("E-IMZO signatures for JSON and PDF are required");
+
+        if (string.IsNullOrWhiteSpace(actor.Pinpp))
+            return Result<HrLeaveRequestDto>.Fail("PINPP is not set in your employee profile");
+
+        await EnsureSigningArtifactsAsync(detail, ct);
+        var canonicalJson = HrLeaveSigningPayloadBuilder.BuildCanonicalJson(detail);
+        var jsonBase64 = HrLeaveSigningPayloadBuilder.ToBase64(canonicalJson);
+        var clientIp = ip ?? "127.0.0.1";
+
+        var jsonVerify = await eimzo.VerifyDetachedAsync(jsonBase64, request.JsonPkcs7.Trim(), clientIp, ct);
+        if (!jsonVerify.IsSuccess)
+            return Result<HrLeaveRequestDto>.Fail(jsonVerify.Error ?? "JSON signature verification failed");
+
+        var pdfVerify = await eimzo.VerifyAttachedAsync(request.PdfPkcs7.Trim(), clientIp, ct);
+        if (!pdfVerify.IsSuccess)
+            return Result<HrLeaveRequestDto>.Fail(pdfVerify.Error ?? "PDF signature verification failed");
+
+        if (!PinppMatches(actor.Pinpp, jsonVerify.Data!.SignerPinpp)
+            || !PinppMatches(actor.Pinpp, pdfVerify.Data!.SignerPinpp))
+            return Result<HrLeaveRequestDto>.Fail("Certificate PINPP does not match your profile");
+
+        var payloadHash = detail.SigningPayloadHash!;
+        var signedAt = DateTime.UtcNow;
+
+        db.HrLeaveSignatures.Add(new HrLeaveSignature
+        {
+            Id = Guid.NewGuid(),
+            DocumentId = detail.DocumentId,
+            SignerUserId = actor.Id,
+            Kind = HrLeaveSignatureKind.JsonDetached,
+            ApproverRole = approver.Role,
+            Pkcs7Base64 = request.JsonPkcs7.Trim(),
+            PayloadSha256 = payloadHash,
+            CertificateSerial = jsonVerify.Data.CertificateSerial,
+            SignerPinpp = jsonVerify.Data.SignerPinpp,
+            SignerCn = jsonVerify.Data.SignerFullName,
+            SignerTin = jsonVerify.Data.SignerTin,
+            SignedAt = signedAt,
+        });
+
+        await using var signedPdfStream = new MemoryStream(Convert.FromBase64String(request.PdfPkcs7.Trim()));
+        var signedKey = await files.UploadAsync(
+            "hr-leave",
+            $"{detail.Document.Number}_signed.pdf",
+            signedPdfStream,
+            "application/pkcs7",
+            ct);
+
+        db.HrLeaveSignatures.Add(new HrLeaveSignature
+        {
+            Id = Guid.NewGuid(),
+            DocumentId = detail.DocumentId,
+            SignerUserId = actor.Id,
+            Kind = HrLeaveSignatureKind.PdfAttached,
+            ApproverRole = approver.Role,
+            Pkcs7Base64 = request.PdfPkcs7.Trim(),
+            PayloadSha256 = payloadHash,
+            CertificateSerial = pdfVerify.Data.CertificateSerial,
+            SignerPinpp = pdfVerify.Data.SignerPinpp,
+            SignerCn = pdfVerify.Data.SignerFullName,
+            SignerTin = pdfVerify.Data.SignerTin,
+            SignedAt = signedAt,
+            StorageKey = signedKey,
+        });
+
+        detail.PdfSignedStorageKey = signedKey;
+        detail.EimzoCompletedAt = signedAt;
+
+        var stamps = BuildPresentationStamps(detail, pdfVerify.Data!, signedAt, ip);
+        var presentationBytes = HrLeavePresentationPdfGenerator.Generate(
+            detail, stamps, BuildLeaveVerificationUrl(detail));
+        await using var presentationStream = new MemoryStream(presentationBytes);
+        detail.PdfPresentationStorageKey = await files.UploadAsync(
+            "hr-leave",
+            $"{detail.Document.Number}_presentation.pdf",
+            presentationStream,
+            "application/pdf",
+            ct);
+
+        await db.SaveChangesAsync(ct);
+        await audit.LogAsync(actor.Id, "HrLeaveEimzoSigned", "Document", detail.DocumentId, approver.Role.ToString(), ip, ct);
+        return null;
+    }
+
+    private static bool RequiresEimzoSignature(HrLeaveRequestDetail detail, HrLeaveApprover approver, User actor) =>
+        approver.Role == HrLeaveApprovalRole.GeneralDirector
+        && actor.Role == UserRole.HOTopManager
+        && detail.Document.Organization.Code == HoMasterData.OrganizationCode;
+
+    private static bool PinppMatches(string? profilePinpp, string? certPinpp) =>
+        !string.IsNullOrWhiteSpace(profilePinpp)
+        && !string.IsNullOrWhiteSpace(certPinpp)
+        && string.Equals(profilePinpp.Trim(), certPinpp.Trim(), StringComparison.Ordinal);
+
+    private async Task EnsureSigningArtifactsAsync(HrLeaveRequestDetail detail, CancellationToken ct)
+    {
+        var canonicalJson = HrLeaveSigningPayloadBuilder.BuildCanonicalJson(detail);
+        detail.SigningPayloadHash = HrLeaveSigningPayloadBuilder.ComputeSha256Hex(canonicalJson);
+
+        if (!string.IsNullOrWhiteSpace(detail.PdfStorageKey)) return;
+
+        var pdfBytes = HrLeavePdfGenerator.Generate(detail, BuildLeaveVerificationUrl(detail));
+        await using var stream = new MemoryStream(pdfBytes);
+        detail.PdfStorageKey = await files.UploadAsync(
+            "hr-leave",
+            $"{detail.Document.Number}.pdf",
+            stream,
+            "application/pdf",
+            ct);
+    }
+
+    private async Task<byte[]> GetPdfBytesAsync(HrLeaveRequestDetail detail, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(detail.PdfStorageKey))
+        {
+            var stored = await files.DownloadAsync(detail.PdfStorageKey, ct);
+            if (stored is not null)
+            {
+                await using var s = stored.Value.Stream;
+                using var ms = new MemoryStream();
+                await s.CopyToAsync(ms, ct);
+                return ms.ToArray();
+            }
+        }
+
+        return HrLeavePdfGenerator.Generate(detail, BuildLeaveVerificationUrl(detail));
     }
 
     public async Task<Result<HrLeaveRequestDto>> RejectAsync(
@@ -318,13 +838,16 @@ public class HrLeaveRequestService(
         }
         else
         {
-            reviewers = await query.Where(u => u.Role == UserRole.BMGMCEngineer).Take(2).ToListAsync(ct);
+            var preferred = await query.Where(u => BmgmcHrReviewerEmails.Contains(u.Email)).ToListAsync(ct);
+            reviewers = preferred.Count > 0
+                ? preferred
+                : await query.Where(u => u.Role == UserRole.BMGMCEngineer).Take(2).ToListAsync(ct);
         }
 
         var order = 0;
         foreach (var user in reviewers)
         {
-            detail.Approvers.Add(new HrLeaveApprover
+            db.HrLeaveApprovers.Add(new HrLeaveApprover
             {
                 Id = Guid.NewGuid(),
                 DocumentId = detail.DocumentId,
@@ -339,49 +862,62 @@ public class HrLeaveRequestService(
 
     private async Task BuildSequentialApproversAsync(HrLeaveRequestDetail detail, CancellationToken ct)
     {
-        var author = await db.Users.AsNoTracking()
-            .Include(u => u.Department)
-            .FirstAsync(u => u.Id == detail.Document.AuthorId, ct);
-
         var chain = new List<(HrLeaveApprovalRole Role, User? User)>();
-        var deptHead = author.DepartmentId is Guid deptId
-            ? await GetDepartmentHeadAsync(deptId, ct)
-            : null;
-        var deputy = author.DepartmentId is Guid dId
-            ? await GetDepartmentDeputyAsync(dId, ct)
-            : null;
 
-        if (detail.Track == HrLeaveTrack.Specialist)
+        if (_hrLeaveOptions.ShortHoApprovalChain
+            && detail.Document.Organization.Code == HoMasterData.OrganizationCode)
         {
-            if (deputy is not null && deputy.Id != author.Id)
-                chain.Add((HrLeaveApprovalRole.DeputyDepartmentHead, deputy));
-            if (deptHead is not null && deptHead.Id != author.Id)
-                chain.Add((HrLeaveApprovalRole.DepartmentHead, deptHead));
+            var gd = await GetUserByEmailAsync(_hrLeaveOptions.HoGeneralDirectorEmail, ct)
+                ?? await GetGeneralDirectorAsync(detail.Document.Organization, ct);
+            if (gd is not null)
+                chain.Add((HrLeaveApprovalRole.GeneralDirector, gd));
         }
         else
         {
-            if (detail.Track == HrLeaveTrack.DepartmentHead && deptHead?.Id == author.Id)
+            var author = await db.Users.AsNoTracking()
+                .Include(u => u.Department)
+                .Include(u => u.Organization)
+                .FirstAsync(u => u.Id == detail.Document.AuthorId, ct);
+
+            var deptHead = author.DepartmentId is Guid deptId
+                ? await GetDepartmentHeadAsync(deptId, ct)
+                : null;
+            var deputy = author.DepartmentId is Guid dId
+                ? await GetDepartmentDeputyAsync(dId, ct)
+                : null;
+
+            if (detail.Track == HrLeaveTrack.Specialist)
             {
-                // skip deputy/head for department head initiator
+                if (deputy is not null && deputy.Id != author.Id)
+                    chain.Add((HrLeaveApprovalRole.DeputyDepartmentHead, deputy));
+                if (deptHead is not null && deptHead.Id != author.Id)
+                    chain.Add((HrLeaveApprovalRole.DepartmentHead, deptHead));
             }
-            else if (deptHead is not null && deptHead.Id != author.Id)
+            else
             {
-                chain.Add((HrLeaveApprovalRole.DepartmentHead, deptHead));
+                if (detail.Track == HrLeaveTrack.DepartmentHead && deptHead?.Id == author.Id)
+                {
+                    // skip deputy/head for department head initiator
+                }
+                else if (deptHead is not null && deptHead.Id != author.Id)
+                {
+                    chain.Add((HrLeaveApprovalRole.DepartmentHead, deptHead));
+                }
+
+                var supervising = await GetSupervisingDeputyAsync(author.OrganizationId, ct);
+                if (supervising is not null)
+                    chain.Add((HrLeaveApprovalRole.SupervisingDeputyGd, supervising));
             }
 
-            var supervising = await GetSupervisingDeputyAsync(author.OrganizationId, ct);
-            if (supervising is not null)
-                chain.Add((HrLeaveApprovalRole.SupervisingDeputyGd, supervising));
+            var gd = await GetGeneralDirectorAsync(detail.Document.Organization, ct);
+            if (gd is not null)
+                chain.Add((HrLeaveApprovalRole.GeneralDirector, gd));
         }
-
-        var gd = await GetGeneralDirectorAsync(author.Organization, ct);
-        if (gd is not null)
-            chain.Add((HrLeaveApprovalRole.GeneralDirector, gd));
 
         var order = 0;
         foreach (var (role, user) in chain.Where(c => c.User is not null))
         {
-            detail.Approvers.Add(new HrLeaveApprover
+            db.HrLeaveApprovers.Add(new HrLeaveApprover
             {
                 Id = Guid.NewGuid(),
                 DocumentId = detail.DocumentId,
@@ -393,6 +929,10 @@ public class HrLeaveRequestService(
             });
         }
     }
+
+    private async Task<User?> GetUserByEmailAsync(string email, CancellationToken ct) =>
+        await db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.IsActive && u.Email == email.ToLower(), ct);
 
     private static HrLeaveApprover? GetPendingHrReviewer(HrLeaveRequestDetail detail, Guid actorId) =>
         detail.Approvers.FirstOrDefault(a =>
@@ -550,6 +1090,17 @@ public class HrLeaveRequestService(
             .ToList();
 
         var permissions = BuildPermissions(actor, detail);
+        var signatures = detail.Signatures
+            .OrderBy(s => s.SignedAt)
+            .Select(s => new HrLeaveSignatureDto(
+                s.Id,
+                s.Kind.ToString(),
+                s.SignerCn ?? "",
+                s.SignerPinpp,
+                s.SignedAt,
+                s.CertificateSerial))
+            .ToList();
+
         return new HrLeaveRequestDto(
             detail.DocumentId,
             detail.Document.Number,
@@ -571,6 +1122,7 @@ public class HrLeaveRequestService(
             approvers,
             activities.Select(a => new HrLeaveTimelineEventDto(
                 a.Id, a.Action, a.Actor?.FullName ?? "", a.Details, a.CreatedAt)).ToList(),
+            signatures,
             permissions);
     }
 
@@ -579,6 +1131,10 @@ public class HrLeaveRequestService(
         var isAuthor = detail.Document.AuthorId == actor.Id;
         var pendingHr = GetPendingHrReviewer(detail, actor.Id);
         var pendingSeq = GetNextPendingSequentialApprover(detail);
+        var canEimzo = detail.Phase == HrLeaveRequestPhase.AwaitingApproval
+            && pendingSeq is not null
+            && pendingSeq.UserId == actor.Id
+            && RequiresEimzoSignature(detail, pendingSeq, actor);
 
         return new HrLeavePermissionsDto(
             CanCreate: true,
@@ -586,7 +1142,8 @@ public class HrLeaveRequestService(
             CanSubmit: isAuthor && detail.Phase == HrLeaveRequestPhase.Draft && detail.Items.Count > 0,
             CanHrReview: detail.Phase == HrLeaveRequestPhase.HrReview && pendingHr is not null,
             CanApprove: detail.Phase == HrLeaveRequestPhase.AwaitingApproval
-                && pendingSeq?.UserId == actor.Id,
+                && pendingSeq?.UserId == actor.Id && !canEimzo,
+            CanEimzoApprove: canEimzo,
             CanReject: (detail.Phase == HrLeaveRequestPhase.HrReview && pendingHr is not null)
                 || (detail.Phase == HrLeaveRequestPhase.AwaitingApproval && pendingSeq?.UserId == actor.Id));
     }
@@ -661,11 +1218,12 @@ public class HrLeaveRequestService(
     {
         var q = tracked ? db.HrLeaveRequestDetails.AsQueryable() : db.HrLeaveRequestDetails.AsNoTracking();
         return q
-            .Include(d => d.Document).ThenInclude(doc => doc.Author)
+            .Include(d => d.Document).ThenInclude(doc => doc.Author).ThenInclude(u => u.Position)
             .Include(d => d.Document).ThenInclude(doc => doc.Department)
             .Include(d => d.Document).ThenInclude(doc => doc.Organization)
             .Include(d => d.HrDepartment)
             .Include(d => d.Items)
+            .Include(d => d.Signatures)
             .Include(d => d.Approvers).ThenInclude(a => a.User).ThenInclude(u => u.Department);
     }
 
@@ -688,6 +1246,22 @@ public class HrLeaveRequestService(
         if (last is not null && int.TryParse(last[prefix.Length..], out var n))
             seq = n + 1;
         return $"{prefix}{seq:D3}";
+    }
+
+    private async Task<User?> GetOrderResponsibleAsync(HrLeaveRequestDetail detail, CancellationToken ct)
+    {
+        if (detail.Document.Organization.Code != HoMasterData.OrganizationCode
+            || string.IsNullOrWhiteSpace(_hrLeaveOptions.HoOrderResponsibleEmail))
+            return null;
+
+        return await GetUserByEmailAsync(_hrLeaveOptions.HoOrderResponsibleEmail, ct);
+    }
+
+    private async Task<bool> IsOrderResponsibleAsync(User actor, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_hrLeaveOptions.HoOrderResponsibleEmail))
+            return false;
+        return string.Equals(actor.Email, _hrLeaveOptions.HoOrderResponsibleEmail, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<WorkTask> CreateLinkedTaskAsync(

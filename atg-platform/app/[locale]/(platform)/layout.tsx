@@ -6,7 +6,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     <AuthGuard>
       <div className="min-h-screen flex flex-col">
         <TopBar />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 bg-background">{children}</main>
       </div>
     </AuthGuard>
   );

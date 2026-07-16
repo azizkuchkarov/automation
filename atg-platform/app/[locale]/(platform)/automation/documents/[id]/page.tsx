@@ -17,6 +17,9 @@ import { Document, DocumentStatus, deptLabel } from "@/lib/dcs";
 import { DocumentStatusBadge } from "@/components/dcs/DocumentBadges";
 import { DcsPageHeader } from "@/components/dcs/DcsPageHeader";
 import { IncomingLetterView } from "@/components/dcs/IncomingLetterView";
+import { MemoView } from "@/components/dcs/MemoView";
+import { OrderView } from "@/components/dcs/OrderView";
+import { OutgoingLetterView } from "@/components/dcs/OutgoingLetterView";
 import { ProcurementRequestView } from "@/components/dcs/ProcurementRequestView";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -82,6 +85,18 @@ export default function DocumentDetailPage() {
 
   if (doc.type === "Incoming") {
     return <IncomingLetterView documentId={doc.id} />;
+  }
+
+  if (doc.type === "Outgoing") {
+    return <OutgoingLetterView documentId={doc.id} />;
+  }
+
+  if (doc.type === "Memo") {
+    return <MemoView documentId={doc.id} />;
+  }
+
+  if (doc.type === "Order") {
+    return <OrderView documentId={doc.id} />;
   }
 
   if (doc.type === "ProcurementRequest") {

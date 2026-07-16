@@ -1,0 +1,21 @@
+MERGES:
+D4:I4
+D7:J7
+B1	Командировочное удостоверение/Business trip reference  №123
+D2	Выдано г-ну / г-же
+E2	ААААА АААААААААА
+D3	Issued to MR. / Mrs. 
+E3	ААААА АААААААААА
+D4	должность / position
+D5	командированному  СП ООО "Asia Trans Gas" в
+D6	who was sent to business trip by JV "Asia Trans Gas" LLC to
+D7	место командировки / place of BT
+D8	Основание: Приказ №
+F8	Пр.№XXX-bt-Uz от XX.XX.202X г. 
+D9	On basis of Order 
+D10	Срок командировки
+F10	X дня / дней с ХХ апреля 2026 года по ХХ  апреля 2026 г
+D11	Dates of business trip
+D12	Действительно при предъявлении паспорта серия  АB 1234567
+D13	Valid upon presentation of passport 
+D15	М. П. 

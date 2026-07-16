@@ -152,7 +152,7 @@ export function ProcurementPhaseOverview({ req, locale, isTas }: Props) {
             <>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <MetaChip icon={User} label={locale.startsWith("en") ? "Initiator" : "Инициатор"} value={req.initiatorName ?? "—"} />
-                <MetaChip icon={Building2} label={locale.startsWith("en") ? "Responsible" : "Ответственный"} value={req.assigneeName ?? "—"} />
+                <MetaChip icon={Building2} label={locale.startsWith("en") ? "Responsible" : "Ответственный"} value={req.tasResponsibleName ?? req.assigneeName ?? "—"} />
                 {req.eamNumber && <MetaChip icon={Clock} label="EAM" value={req.eamNumber} />}
               </div>
               {approvalActive && (

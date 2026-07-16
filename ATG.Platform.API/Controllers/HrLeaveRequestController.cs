@@ -67,6 +67,49 @@ public class HrLeaveRequestController(IHrLeaveRequestService service) : Controll
         return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
     }
 
+    [HttpGet("{id:guid}/signing-package")]
+    public async Task<IActionResult> GetSigningPackage(Guid id, CancellationToken ct)
+    {
+        var result = await service.GetSigningPackageAsync(id, GetUserId()!.Value, ct);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("{id:guid}/download/pdf")]
+    public async Task<IActionResult> DownloadPdf(Guid id, CancellationToken ct)
+    {
+        var result = await service.DownloadPdfAsync(id, GetUserId()!.Value, ct);
+        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        var (stream, contentType, fileName) = result.Data!;
+        return File(stream, contentType, fileName);
+    }
+
+    [HttpGet("{id:guid}/download/signed-pdf")]
+    public async Task<IActionResult> DownloadSignedPdf(Guid id, CancellationToken ct)
+    {
+        var result = await service.DownloadSignedPdfAsync(id, GetUserId()!.Value, GetIp(), ct);
+        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        var (stream, contentType, fileName) = result.Data!;
+        return File(stream, contentType, fileName);
+    }
+
+    [HttpGet("{id:guid}/download/signed-pkcs7")]
+    public async Task<IActionResult> DownloadSignedPkcs7(Guid id, CancellationToken ct)
+    {
+        var result = await service.DownloadSignedPkcs7Async(id, GetUserId()!.Value, ct);
+        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        var (stream, contentType, fileName) = result.Data!;
+        return File(stream, contentType, fileName);
+    }
+
+    [HttpGet("{id:guid}/download/json-signature")]
+    public async Task<IActionResult> DownloadJsonSignature(Guid id, CancellationToken ct)
+    {
+        var result = await service.DownloadJsonSignatureAsync(id, GetUserId()!.Value, ct);
+        if (!result.IsSuccess) return BadRequest(new { error = result.Error });
+        var (stream, contentType, fileName) = result.Data!;
+        return File(stream, contentType, fileName);
+    }
+
     [HttpPost("{id:guid}/reject")]
     public async Task<IActionResult> Reject(Guid id, [FromBody] HrLeaveApprovalRequest request, CancellationToken ct)
     {

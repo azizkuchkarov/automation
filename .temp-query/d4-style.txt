@@ -1,0 +1,10 @@
+D4 value: 'должность / position Специалист по ИТ (старший специалист) / IT Officer (Senior specialist)'
+font color: FFFF0000
+font bold: True
+fill type: None
+fill fg: 00000000
+fill bg: 00000000
+row4 hidden: False
+row4 height: None
+alignment wrap: True
+alignment shrink: None
